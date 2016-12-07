@@ -2,6 +2,13 @@
 name = "elma-lgr"
 version = "0.1.0"
 authors = ["kryptan"]
+description = "Library for reading Elasto Mania LGR files."
+documentation = "https://docs.rs/elma-lgr/"
+homepage = "https://github.com/kryptan/other-elma/tree/master/elma-lgr"
+repository = "https://github.com/kryptan/other-elma/tree/master/elma-lgr"
+readme = "README.md"
+keywords = ["ElastoMania", "Elma", "LGR", "Elasto"]
+license = "WTFPL"
 
 [dependencies]
 byteorder = "0.5"
