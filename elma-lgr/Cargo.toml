@@ -1,0 +1,6 @@
+[package]
+name = "elma-lgr"
+version = "0.1.0"
+authors = ["kryptan <kryptan@users.noreply.github.com>"]
+
+[dependencies]
