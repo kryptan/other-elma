@@ -28,7 +28,7 @@ gfx_defines!{
 
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
-        out: gfx::RenderTarget<ColorFormat> = "Target0",
+        out: gfx::RenderTarget<ColorFormat> = "pixel",
         displacement: gfx::Global<[f32; 2]> = "displacement",
         scale: gfx::Global<[f32; 2]> = "scale",
     }

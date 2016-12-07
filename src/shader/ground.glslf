@@ -1,8 +1,8 @@
 #version 150 core
 
 in vec4 color;
-out vec4 Target0;
+out vec4 pixel;
 
 void main() {
-    Target0 = color;
+    pixel = color;
 }
