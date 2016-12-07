@@ -22,13 +22,15 @@ pub type DepthFormat = gfx::format::DepthStencil;
 
 gfx_defines!{
     vertex Vertex {
-        pos: [f32; 2] = "a_Pos",
-        color: [f32; 3] = "a_Color",
+        pos: [f32; 2] = "in_pos",
+        color: [f32; 3] = "in_color",
     }
 
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
         out: gfx::RenderTarget<ColorFormat> = "Target0",
+        displacement: gfx::Global<[f32; 2]> = "displacement",
+        scale: gfx::Global<[f32; 2]> = "scale",
     }
 }
 
@@ -62,12 +64,13 @@ fn main() {
     let (window, mut device, mut factory, main_color, mut main_depth) = gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder);
     let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
     let pso = factory.create_pipeline_simple(
-        include_bytes!("shader/triangle_150.glslv"),
-        include_bytes!("shader/triangle_150.glslf"),
+        include_bytes!("shader/ground.glslv"),
+        include_bytes!("shader/ground.glslf"),
         pipe::new()
     ).unwrap();
 
     let mut size_in_pixels = (w, h);
+    let scale = 30.0;
 
     let level = Level::load("E:/d/games/ElastoMania/Lev/0lp25.lev").unwrap();
 
@@ -78,7 +81,9 @@ fn main() {
     let vertex_buffer = factory.create_vertex_buffer(&vertices.vertices);
     let mut data = pipe::Data {
         vbuf: vertex_buffer,
-        out: main_color
+        out: main_color,
+        displacement: [0.0, 0.0],
+        scale: [scale/(size_in_pixels.0 as f32), scale/(size_in_pixels.1 as f32)],
     };
 
     let index_buffer = factory.create_buffer_const(&vertices.indices, gfx::BufferRole::Index, gfx::Bind::empty()).unwrap();
@@ -104,6 +109,9 @@ fn main() {
                 _ => {},
             }
         }
+
+        data.displacement = [0.0, 0.0];
+        data.scale = [scale/(size_in_pixels.0 as f32), scale/(size_in_pixels.1 as f32)];
 
         // draw a frame
         encoder.clear(&data.out, [0.2, 0.3, 0.4, 0.7]);

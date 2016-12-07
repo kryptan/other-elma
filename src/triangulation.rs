@@ -10,7 +10,7 @@ use Vertex;
 impl VertexConstructor<Point, Vertex> for () {
     fn new_vertex(&mut self, input: Point) -> Vertex {
         Vertex {
-            pos : [input.x*0.01, input.y*0.01],
+            pos : [input.x, input.y],
             color : [0.8, 0.2, 0.3],
         }
     }
