@@ -3,6 +3,7 @@ extern crate byteorder;
 use std::io;
 use std::path::Path;
 use std::fs::File;
+use std::collections::BTreeMap;
 use byteorder::{LittleEndian, ReadBytesExt};
 
 #[derive(Debug)]
@@ -36,7 +37,6 @@ pub enum ClippingMode {
 
 #[derive(Debug, Clone)]
 pub struct PictureInfo {
-    pub name : String,
     pub kind : PictureKind,
     pub distance : u32,
     pub clipping : ClippingMode,
@@ -53,11 +53,12 @@ pub struct Picture {
     pub unknown_b : u32,
 
     pub pcx : Vec<u8>,
+
+    pub info : Option<PictureInfo>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Lgr {
-    pub infos : Vec<PictureInfo>,
     pub pictures : Vec<Picture>,
 
     /// Value with unknown purpose. Usually equals to 1002.
@@ -86,6 +87,51 @@ fn read_string<R : io::Read>(stream : &mut R, len : usize) -> Result<String, Lgr
 }
 
 impl Lgr {
+    fn read_infos<R : io::Read>(stream : &mut R, listed_images : usize) -> Result<BTreeMap<String, PictureInfo>, LgrError> {
+        // need tp init array to something, these values will be overwritten
+        let initial_info = PictureInfo {
+            kind : PictureKind::Picture,
+            distance : 0,
+            clipping : ClippingMode::U,
+            unknown : 0,
+        };
+        let mut infos : Vec<(String, PictureInfo)> = std::iter::repeat(("".to_string(), initial_info)).take(listed_images).collect();
+
+        for i in 0..listed_images {
+            infos[i].0 = read_string(stream, 10)?;
+        }
+
+        for i in 0..listed_images {
+            let kind = stream.read_u32::<LittleEndian>()?;
+            infos[i].1.kind = match kind {
+                100 => PictureKind::Picture,
+                101 => PictureKind::Text,
+                102 => PictureKind::Text,
+                _ => return Err(LgrError::UnknownPictureKind)
+            };
+        }
+
+        for i in 0..listed_images {
+            infos[i].1.distance = stream.read_u32::<LittleEndian>()?;
+        }
+
+        for i in 0..listed_images {
+            let clipping = stream.read_u32::<LittleEndian>()?;
+            infos[i].1.clipping = match clipping {
+                0 => ClippingMode::U,
+                1 => ClippingMode::G,
+                2 => ClippingMode::S,
+                _ => return Err(LgrError::UnknownClippingMode)
+            };
+        }
+
+        for i in 0..listed_images {
+            infos[i].1.unknown = stream.read_u32::<LittleEndian>()?;
+        }
+
+        Ok(infos.into_iter().collect())
+    }
+
     pub fn load<R : io::Read>(stream : &mut R) -> Result<Self, LgrError> {
         let mut magic  = [0; 5];
         stream.read_exact(&mut magic)?;
@@ -98,47 +144,7 @@ impl Lgr {
         let unknown = stream.read_u32::<LittleEndian>()?;
         let listed_images = stream.read_u32::<LittleEndian>()? as usize;
 
-        // need tp init array to something, these values will be overwritten
-        let initial_info = PictureInfo {
-            name : "".to_string(),
-            kind : PictureKind::Picture,
-            distance : 0,
-            clipping : ClippingMode::U,
-            unknown : 0,
-        };
-        let mut infos : Vec<PictureInfo> = std::iter::repeat(initial_info).take(listed_images).collect();
-
-        for i in 0..listed_images {
-            infos[i].name = read_string(stream, 10)?;
-        }
-
-        for i in 0..listed_images {
-            let kind = stream.read_u32::<LittleEndian>()?;
-            infos[i].kind = match kind {
-                100 => PictureKind::Picture,
-                101 => PictureKind::Text,
-                102 => PictureKind::Text,
-                _ => return Err(LgrError::UnknownPictureKind)
-            };
-        }
-
-        for i in 0..listed_images {
-            infos[i].distance = stream.read_u32::<LittleEndian>()?;
-        }
-
-        for i in 0..listed_images {
-            let clipping = stream.read_u32::<LittleEndian>()?;
-            infos[i].clipping = match clipping {
-                0 => ClippingMode::U,
-                1 => ClippingMode::G,
-                2 => ClippingMode::S,
-                _ => return Err(LgrError::UnknownClippingMode)
-            };
-        }
-
-        for i in 0..listed_images {
-            infos[i].unknown = stream.read_u32::<LittleEndian>()?;
-        }
+        let mut infos = Self::read_infos(stream, listed_images)?;
 
         let mut pictures = Vec::with_capacity(total_images);
         for _ in 0..total_images {
@@ -150,16 +156,18 @@ impl Lgr {
             let mut pcx : Vec<u8> = std::iter::repeat(0).take(length).collect();
             stream.read_exact(&mut pcx)?;
 
+            let info = infos.remove(name.trim_right_matches(".pcx"));
+
             pictures.push(Picture {
                 name : name,
                 unknown_a : unknown_a,
                 unknown_b : unknown_b,
                 pcx : Vec::new(),
+                info : info,
             })
         }
 
         Ok(Lgr {
-            infos : infos,
             pictures : pictures,
             unknown : unknown,
         })
