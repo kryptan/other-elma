@@ -1,3 +1,7 @@
+//! Crate for parsing ElastoMania LGR files.
+//!
+//! LGR files contain pcx images.
+
 extern crate byteorder;
 
 use std::io;
@@ -24,7 +28,9 @@ impl From<io::Error> for LgrError {
 #[derive(Debug, Copy, Clone)]
 pub enum PictureKind {
     Picture,
-    Text,
+    Texture,
+
+    /// Masks are used to draw textures.
     Mask,
 }
 
@@ -35,6 +41,7 @@ pub enum ClippingMode {
     S,
 }
 
+/// Picture description.
 #[derive(Debug, Clone)]
 pub struct PictureInfo {
     pub kind : PictureKind,
@@ -46,20 +53,20 @@ pub struct PictureInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct Picture {
-    pub name : String,
-
+pub struct Image {
     pub unknown_a : u32,
     pub unknown_b : u32,
 
     pub pcx : Vec<u8>,
 
+    /// Optional information describing image.
     pub info : Option<PictureInfo>,
 }
 
+/// Structure representing content of an LGR file.
 #[derive(Debug, Clone)]
 pub struct Lgr {
-    pub pictures : Vec<Picture>,
+    pub images : BTreeMap<String, Image>,
 
     /// Value with unknown purpose. Usually equals to 1002.
     pub unknown : u32,
@@ -87,6 +94,53 @@ fn read_string<R : io::Read>(stream : &mut R, len : usize) -> Result<String, Lgr
 }
 
 impl Lgr {
+   /// Read LGR from file.
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, LgrError> {
+        let file = File::open(path)?;
+        Lgr::load(&mut io::BufReader::new(file))
+    }
+
+    /// Read LGR from stream.
+    pub fn load<R : io::Read>(stream : &mut R) -> Result<Self, LgrError> {
+        let mut magic  = [0; 5];
+        stream.read_exact(&mut magic)?;
+
+        if &magic != b"LGR12" {
+            return Err(LgrError::NotAnLgr)
+        }
+
+        let total_images = stream.read_u32::<LittleEndian>()? as usize;
+        let unknown = stream.read_u32::<LittleEndian>()?;
+        let listed_images = stream.read_u32::<LittleEndian>()? as usize;
+
+        let mut infos = Self::read_infos(stream, listed_images)?;
+
+        let mut images = BTreeMap::new();
+        for _ in 0..total_images {
+            let name = read_string(stream, 12)?;
+            let unknown_a = stream.read_u32::<LittleEndian>()?;
+            let unknown_b = stream.read_u32::<LittleEndian>()?;
+            let length = stream.read_u32::<LittleEndian>()? as usize;
+
+            let mut pcx : Vec<u8> = std::iter::repeat(0).take(length).collect();
+            stream.read_exact(&mut pcx)?;
+
+            let info = infos.remove(name.trim_right_matches(".pcx"));
+
+            images.insert(name, Image {
+                unknown_a : unknown_a,
+                unknown_b : unknown_b,
+                pcx : Vec::new(),
+                info : info,
+            });
+        }
+
+        Ok(Lgr {
+            images : images,
+            unknown : unknown,
+        })
+    }
+
     fn read_infos<R : io::Read>(stream : &mut R, listed_images : usize) -> Result<BTreeMap<String, PictureInfo>, LgrError> {
         // need tp init array to something, these values will be overwritten
         let initial_info = PictureInfo {
@@ -105,8 +159,8 @@ impl Lgr {
             let kind = stream.read_u32::<LittleEndian>()?;
             infos[i].1.kind = match kind {
                 100 => PictureKind::Picture,
-                101 => PictureKind::Text,
-                102 => PictureKind::Text,
+                101 => PictureKind::Texture,
+                102 => PictureKind::Mask,
                 _ => return Err(LgrError::UnknownPictureKind)
             };
         }
@@ -131,52 +185,6 @@ impl Lgr {
 
         Ok(infos.into_iter().collect())
     }
-
-    pub fn load<R : io::Read>(stream : &mut R) -> Result<Self, LgrError> {
-        let mut magic  = [0; 5];
-        stream.read_exact(&mut magic)?;
-
-        if &magic != b"LGR12" {
-            return Err(LgrError::NotAnLgr)
-        }
-
-        let total_images = stream.read_u32::<LittleEndian>()? as usize;
-        let unknown = stream.read_u32::<LittleEndian>()?;
-        let listed_images = stream.read_u32::<LittleEndian>()? as usize;
-
-        let mut infos = Self::read_infos(stream, listed_images)?;
-
-        let mut pictures = Vec::with_capacity(total_images);
-        for _ in 0..total_images {
-            let name = read_string(stream, 12)?;
-            let unknown_a = stream.read_u32::<LittleEndian>()?;
-            let unknown_b = stream.read_u32::<LittleEndian>()?;
-            let length = stream.read_u32::<LittleEndian>()? as usize;
-
-            let mut pcx : Vec<u8> = std::iter::repeat(0).take(length).collect();
-            stream.read_exact(&mut pcx)?;
-
-            let info = infos.remove(name.trim_right_matches(".pcx"));
-
-            pictures.push(Picture {
-                name : name,
-                unknown_a : unknown_a,
-                unknown_b : unknown_b,
-                pcx : Vec::new(),
-                info : info,
-            })
-        }
-
-        Ok(Lgr {
-            pictures : pictures,
-            unknown : unknown,
-        })
-    }
-
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, LgrError> {
-        let file = File::open(path)?;
-        Lgr::load(&mut io::BufReader::new(file))
-    }
 }
 
 #[cfg(test)]
@@ -184,11 +192,11 @@ mod tests {
     use ::Lgr;
 
     #[test]
+    // FIXME: add test with some free LGR file.
     fn it_works() {
-
-        let test = Lgr::load_from_file("E:/d/games/ElastoMania/Lgr/Default.lgr").unwrap();
+     /*   let test = Lgr::load_from_file("E:/d/games/ElastoMania/Lgr/Default.lgr").unwrap();
 
         println!("{:#?}", test);
-        assert!(false);
+        assert!(false);*/
     }
 }
