@@ -1,5 +1,5 @@
-target
+*/target
 
 # IntelliJ IDEA files
-.idea
+*/.idea
 *.iml
