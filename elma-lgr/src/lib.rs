@@ -1,6 +1,17 @@
 //! Crate for parsing ElastoMania LGR files.
 //!
 //! LGR files contain PCX images.
+//!
+//! Example usage:
+//!
+//!     use elma_lgr::Lgr;
+//!
+//!     let lgr = Lgr::load_from_file("lgr/example.lgr", false, false).unwrap();
+//!     println!("There are {} images in this LGR file", lgr.images.len());
+//!     for (name, image) in lgr.images {
+//!         println!("{}, width = {}, height = {}", name, image.width, image.height);
+//!     }
+//!
 extern crate byteorder;
 extern crate pcx;
 
@@ -51,6 +62,7 @@ pub struct Picture {
 }
 
 /// Image from LGR.
+#[derive(Debug, Clone)]
 pub struct Image {
     /// Optional information describing image.
     pub info : Option<Picture>,
@@ -62,13 +74,18 @@ pub struct Image {
     pub height : u16,
 
     /// Image pixels. Each pixel is an index into LGR palette.
+    ///
+    /// This array will only contain values if LGR was loaded with `load_pixels` option.
     pub pixels : Vec<u8>,
 
     /// Raw content of the PCX file.
+    ///
+    /// This array will only contain values if LGR was loaded with `load_raw_pcx` option.
     pub pcx : Vec<u8>,
 }
 
 /// Content of an LGR file.
+#[derive(Debug, Clone)]
 pub struct Lgr {
     /// All images contained in this LGR. Names include .pcx extension.
     pub images : BTreeMap <String, Image>,
@@ -78,8 +95,10 @@ pub struct Lgr {
 }
 
 impl Image {
-    #[inline]
     /// Get image pixel. Returned value is an index into LGR palette.
+    ///
+    /// This function will panic if `x >= width`, `y >= height` or LGR was loaded with `load_pixels` set to `false`.
+    #[inline]
     pub fn get_pixel(&self, x : u16, y : u16) -> u8 {
         self.pixels[(y as usize)*(self.width as usize) + (x as usize)]
     }
@@ -96,6 +115,105 @@ impl Lgr {
             self.palette[(i as usize)*3 + 1],
             self.palette[(i as usize)*3 + 2]
         )
+    }
+
+    /// Read LGR from file.
+    ///
+    /// Arguments:
+    ///
+    /// * `load_pixels` - load pixels from PCX images and store them into `Image::pixels`.
+    /// * `load_raw_pcx` - load raw byte content of PCX images into `Image::pcx`.
+    ///
+    /// If you are going to use LGR for rendering then set `load_pixels` to `true` and `load_raw_pcx` to `false`.
+    /// If you wat to extract files from LGR then set `load_pixels` to `false` and `load_raw_pcx` to `true`.
+    pub fn load_from_file<P: AsRef<Path>>(path: P, load_pixels: bool, load_raw_pcx: bool) -> io::Result<Self> {
+        let file = File::open(path)?;
+        Self::load_from_stream(&mut io::BufReader::new(file), load_pixels, load_raw_pcx)
+    }
+
+    /// Read LGR from stream.
+    ///
+    /// See description of `load_from_file` for more info.
+    pub fn load_from_stream<R : io::Read>(stream : &mut R, load_pixels: bool, load_raw_pcx: bool) -> io::Result<Self> {
+        let mut magic  = [0; 5];
+        stream.read_exact(&mut magic)?;
+
+        if &magic != b"LGR12" {
+            return error("Not an LGR");
+        }
+
+        let total_images = stream.read_u32::<LittleEndian>()? as usize;
+        let unknown = stream.read_u32::<LittleEndian>()?;
+        if unknown != 1002 { // some kind of version or something like that
+            return error("LGR: invalid unknown value != 1002");
+        }
+
+        let listed_images = stream.read_u32::<LittleEndian>()? as usize;
+
+        let mut infos = read_pictures(stream, listed_images)?;
+
+        let mut images = BTreeMap::new();
+        let mut palette = Vec::new();
+        for _ in 0..total_images {
+            let name = read_string(stream, 12)?;
+            let _unknown_a = stream.read_i32::<LittleEndian>()?;
+            let _unknown_b = stream.read_i32::<LittleEndian>()?;
+            let length = stream.read_u32::<LittleEndian>()? as usize;
+
+            let mut pcx : Vec<u8> = std::iter::repeat(0).take(length).collect();
+            stream.read_exact(&mut pcx)?;
+
+            let info = infos.remove(name.trim_right_matches(".pcx"));
+
+            let (pixels, width, height) = {
+                let mut pcx_reader = pcx::Reader::new(&pcx[..])?;
+                let (width, height) = (pcx_reader.width() as usize, pcx_reader.height() as usize);
+
+                let pixels = if load_pixels {
+                    let mut pixels: Vec<u8> = iter::repeat(0).take(width*height).collect();
+
+                    for i in 0..height {
+                        pcx_reader.next_row_paletted(&mut pixels[i*width..(i + 1)*width])?;
+                    }
+
+                    pixels
+                } else {
+                    Vec::new()
+                };
+
+                // Masks contain invalid palettes, we can take palette from the first image that is not a mask.
+                let valid_palette = if let Some(info) = info {
+                    info.kind != PictureKind::Mask
+                } else {
+                    true
+                };
+
+                if valid_palette && palette.is_empty() {
+                    palette = iter::repeat(0).take(256*3).collect();
+                    pcx_reader.read_palette(&mut palette)?;
+                }
+
+                (pixels, width as u16, height as u16)
+            };
+
+            if !load_raw_pcx {
+                pcx.clear();
+                pcx.shrink_to_fit();
+            }
+
+            images.insert(name, Image {
+                info : info,
+                width : width,
+                height : height,
+                pixels : pixels,
+                pcx : pcx,
+            });
+        }
+
+        Ok(Lgr {
+            images : images,
+            palette : palette,
+        })
     }
 }
 
@@ -122,85 +240,6 @@ fn read_string<R : io::Read>(stream : &mut R, len : usize) -> io::Result<String>
         Ok(s) => Ok(s),
         Err(_) => error("LGR: invalid ASCII"),
     }
-}
-
-/// Read LGR from file.
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> io::Result<Lgr> {
-    let file = File::open(path)?;
-    load(&mut io::BufReader::new(file))
-}
-
-/// Read LGR from stream.
-pub fn load<R : io::Read>(stream : &mut R) -> io::Result<Lgr> {
-    let mut magic  = [0; 5];
-    stream.read_exact(&mut magic)?;
-
-    if &magic != b"LGR12" {
-        return error("Not an LGR");
-    }
-
-    let total_images = stream.read_u32::<LittleEndian>()? as usize;
-    let unknown = stream.read_u32::<LittleEndian>()?;
-    if unknown != 1002 { // Some kind of version or something like that
-        return error("LGR: invalid unknown value != 1002");
-    }
-
-    let listed_images = stream.read_u32::<LittleEndian>()? as usize;
-
-    let mut infos = read_pictures(stream, listed_images)?;
-
-    let mut images = BTreeMap::new();
-    let mut palette = Vec::new();
-    for _ in 0..total_images {
-        let name = read_string(stream, 12)?;
-        let _unknown_a = stream.read_i32::<LittleEndian>()?;
-        let _unknown_b = stream.read_i32::<LittleEndian>()?;
-        let length = stream.read_u32::<LittleEndian>()? as usize;
-
-        let mut pcx : Vec<u8> = std::iter::repeat(0).take(length).collect();
-        stream.read_exact(&mut pcx)?;
-
-        let info = infos.remove(name.trim_right_matches(".pcx"));
-
-        let (pixels, width, height) = {
-            let read_stream = &pcx[..];
-            let mut pcx_reader = pcx::Reader::new(read_stream)?;
-            let (width, height) = (pcx_reader.width() as usize, pcx_reader.height() as usize);
-
-            let mut pixels: Vec<u8> = iter::repeat(0).take(width*height).collect();
-
-            for i in 0..height {
-                pcx_reader.next_row_paletted(&mut pixels[i*width..(i + 1)*width])?;
-            }
-
-            // Masks contain invalid palettes, we can take palette from the first image that is not a mask.
-            let valid_palette = if let Some(info) = info {
-                info.kind != PictureKind::Mask
-            } else {
-                true
-            };
-
-            if valid_palette && palette.is_empty() {
-                palette = iter::repeat(0).take(256*3).collect();
-                pcx_reader.read_palette(&mut palette)?;
-            }
-
-            (pixels, width as u16, height as u16)
-        };
-
-        images.insert(name, Image {
-            info : info,
-            width : width,
-            height : height,
-            pixels : pixels,
-            pcx : pcx,
-        });
-    }
-
-    Ok(Lgr {
-        images : images,
-        palette : palette,
-    })
 }
 
 fn read_pictures<R : io::Read>(stream : &mut R, listed_images : usize) -> io::Result<BTreeMap<String, Picture>> {
@@ -252,15 +291,20 @@ fn read_pictures<R : io::Read>(stream : &mut R, listed_images : usize) -> io::Re
 
 #[cfg(test)]
 mod tests {
-    use load_from_file;
+    use Lgr;
 
     #[test]
-    // FIXME: add test with some free LGR file.
-    fn it_works() {
-     //   let test = Lgr::load_from_file("E:/d/games/ElastoMania/Lgr/Default.lgr").unwrap();
-        let test = load_from_file("E:/d/games/ElastoMania/Lgr/Carma.lgr").unwrap();
+    fn load() {
+        let lgr = Lgr::load_from_file("lgr/example.lgr", false, false).unwrap();
+        assert_eq!(lgr.images.len(), 77);
 
-     //   println!("{:#?}", test);
-        assert!(false);
+        let lgr = Lgr::load_from_file("lgr/example.lgr", false, true).unwrap();
+        assert_eq!(lgr.images.len(), 77);
+
+        let lgr = Lgr::load_from_file("lgr/example.lgr", true, false).unwrap();
+        assert_eq!(lgr.images.len(), 77);
+
+        let lgr = Lgr::load_from_file("lgr/example.lgr", true, true).unwrap();
+        assert_eq!(lgr.images.len(), 77);
     }
 }

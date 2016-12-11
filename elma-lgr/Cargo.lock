@@ -1,6 +1,6 @@
 [root]
 name = "elma-lgr"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "byteorder 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "pcx 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
