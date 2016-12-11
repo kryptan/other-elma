@@ -13,3 +13,4 @@ exclude = ["elma-lgr.iml"]
 
 [dependencies]
 byteorder = "0.5"
+pcx = "0.1.2"
