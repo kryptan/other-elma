@@ -7,12 +7,13 @@ edition = "2018"
 [dependencies]
 elma = "0.1"
 elma-lgr = "0.2"
-gfx = "0.12"
-glutin = "0.6"
-gfx_window_glutin = "0.12.0"
+glutin = "0.24"
 cgmath = "0.12"
 lyon_tessellation = "0.3"
 lyon_core = "0.3.2"
 lyon_path_iterator = "0.3.2"
 lyon_path = "0.3.2"
 lyon_path_builder = "0.3.2"
+
+[build-dependencies]
+gl_generator = "0.14"

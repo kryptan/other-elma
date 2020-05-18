@@ -1,21 +1,124 @@
-extern crate elma;
-#[macro_use] extern crate gfx;
-extern crate gfx_window_glutin;
-extern crate glutin;
-extern crate cgmath;
-extern crate lyon_tessellation;
-extern crate lyon_core;
-extern crate lyon_path;
-extern crate lyon_path_builder;
-extern crate lyon_path_iterator;
-
-use gfx::traits::FactoryExt;
-use gfx::Device;
 use elma::lev::Level;
+use glutin::event::{Event, WindowEvent};
+use glutin::event_loop::ControlFlow;
 
+mod render;
 mod triangulation;
 
-type Interval = u32;
+mod gl {
+    include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
+}
+
+use gl::types::*;
+
+/*
+mod gles {
+    include!(concat!(env!("OUT_DIR"), "/gles_bindings.rs"));
+}*/
+
+fn main() {
+    let level = Level::load("E:/d/games/ElastoMania/Lev/0lp25.lev").unwrap();
+    let vertices = triangulation::triangulate(&level);
+    let indices: Vec<u32> = vertices.indices.iter().map(|&i| i as u32).collect();
+
+    let events_loop = glutin::event_loop::EventLoop::new();
+    let window_builder = glutin::window::WindowBuilder::new()
+        .with_title("Elastomania")
+        .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
+
+    let windowed_context = glutin::ContextBuilder::new()
+        .with_vsync(true)
+        .build_windowed(window_builder, &events_loop)
+        .unwrap();
+
+    let mut size = windowed_context.window().inner_size();
+    let mut scale_factor = windowed_context.window().scale_factor();
+
+    let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+
+    let gl = gl::Gl::load_with(|name| windowed_context.get_proc_address(name) as *const _);
+    //  let _gles = gles::Gles2::load_with(|name| self.window.context().get_proc_address(name) as *const _);
+
+    let mut renderer = unsafe { render::Renderer::new(&gl) };
+
+    events_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Wait;
+
+        let mut close = false;
+        let mut resize = false;
+
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                close = true;
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Resized(new_size),
+                ..
+            } => {
+                size = new_size;
+                println!("new size = {:?}", new_size);
+                resize = true;
+            }
+            Event::WindowEvent {
+                event:
+                    WindowEvent::ScaleFactorChanged {
+                        scale_factor: new_scale_factor,
+                        new_inner_size,
+                    },
+                ..
+            } => {
+                scale_factor = new_scale_factor;
+                size = *new_inner_size;
+                println!("new hidpi_factor = {}", scale_factor);
+                resize = true;
+            }
+            Event::WindowEvent { event, .. } => {
+                //    dbg!(event);
+            }
+            Event::RedrawRequested(_) => {
+                let width = size.width as f64 / scale_factor;
+                let height = size.height as f64 / scale_factor;
+
+                unsafe {
+                    gl.ClearColor(1.0, 0.5, 1.0, 1.0);
+                    gl.Clear(gl::COLOR_BUFFER_BIT);
+                }
+
+                // Render batches.
+                unsafe {
+                    renderer.draw_batch(
+                        &gl,
+                        &vertices.vertices,
+                        &indices,
+                        width * 0.1,
+                        height * 0.1,
+                    )
+                };
+
+                windowed_context.swap_buffers().unwrap(); // FIXME: handle error
+            }
+            _ => {}
+        };
+
+        if resize {
+            windowed_context.resize(size);
+            unsafe { gl.Viewport(0, 0, size.width as GLsizei, size.height as GLsizei) };
+        }
+
+        if close {
+            println!("close");
+            *control_flow = ControlFlow::Exit;
+            return;
+        }
+    });
+
+    //  unsafe { renderer.cleanup(&gl) };
+}
+
+/*
 
 pub type ColorFormat = gfx::format::Rgba8;
 pub type DepthFormat = gfx::format::DepthStencil;
@@ -105,4 +208,4 @@ fn main() {
         window.swap_buffers().unwrap();
         device.cleanup();
     }
-}
+}*/
