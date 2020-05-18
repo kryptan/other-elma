@@ -34,21 +34,6 @@ gfx_defines!{
     }
 }
 
-enum Action {
-    ThrottleSwitch,
-    Flip,
-    CounterClockwiseVolt,
-    ClockwiseVolt,
-    ClockwiseAloVolt,
-}
-
-struct TimedAction {
-    delta : Interval,
-    action : Action,
-}
-
-type ActionSequence = Vec<TimedAction>;
-
 fn main() {
     use gfx::Factory;
 
