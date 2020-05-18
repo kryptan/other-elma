@@ -5,7 +5,7 @@ use lyon_core::math::{Point, point};
 use lyon_tessellation::geometry_builder::{VertexConstructor, VertexBuffers, BuffersBuilder};
 use lyon_tessellation::path_fill::*;
 use elma::lev::Level;
-use Vertex;
+use crate::Vertex;
 
 impl VertexConstructor<Point, Vertex> for () {
     fn new_vertex(&mut self, input: Point) -> Vertex {

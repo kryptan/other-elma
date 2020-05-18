@@ -367,10 +367,3 @@ fn min(a: f64, b: f64) -> f64 {
 fn max(a: f64, b: f64) -> f64 {
     if a > b { a } else { b }
 }
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-    }
-}

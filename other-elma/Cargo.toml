@@ -2,6 +2,7 @@
 name = "elma2"
 version = "0.1.0"
 authors = ["kryptan"]
+edition = "2018"
 
 [dependencies]
 elma = "0.1"

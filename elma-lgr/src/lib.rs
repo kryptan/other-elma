@@ -12,9 +12,6 @@
 //!         println!("{}, width = {}, height = {}", name, image.width, image.height);
 //!     }
 //!
-extern crate byteorder;
-extern crate pcx;
-
 use std::{io, iter};
 use std::path::Path;
 use std::fs::File;
@@ -163,7 +160,7 @@ impl Lgr {
             let mut pcx : Vec<u8> = std::iter::repeat(0).take(length).collect();
             stream.read_exact(&mut pcx)?;
 
-            let info = infos.remove(name.trim_right_matches(".pcx"));
+            let info = infos.remove(name.trim_end_matches(".pcx"));
 
             let (pixels, width, height) = {
                 let mut pcx_reader = pcx::Reader::new(&pcx[..])?;
@@ -202,17 +199,17 @@ impl Lgr {
             }
 
             images.insert(name, Image {
-                info : info,
-                width : width,
-                height : height,
-                pixels : pixels,
-                pcx : pcx,
+                info,
+                width,
+                height,
+                pixels,
+                pcx,
             });
         }
 
         Ok(Lgr {
-            images : images,
-            palette : palette,
+            images,
+            palette,
         })
     }
 }

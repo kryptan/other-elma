@@ -9,8 +9,8 @@ repository = "https://github.com/kryptan/other-elma/tree/master/elma-lgr"
 readme = "README.md"
 keywords = ["ElastoMania", "Elma", "LGR", "Elasto"]
 license = "WTFPL"
-exclude = ["elma-lgr.iml"]
+edition = "2018"
 
 [dependencies]
-byteorder = "0.5"
+byteorder = "1"
 pcx = "0.1.2"

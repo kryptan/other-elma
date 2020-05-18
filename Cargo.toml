@@ -1,0 +1,2 @@
+[workspace]
+members = ["elma-lgr", "elma-physics", "other-elma"]
