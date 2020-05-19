@@ -1,6 +1,8 @@
 use crate::gl;
 use crate::gl::types::*;
 use crate::gl::Gl;
+use cgmath::Vector2;
+use glutin::dpi::PhysicalSize;
 use std;
 use std::mem::size_of;
 use std::ptr;
@@ -27,8 +29,27 @@ pub struct Vertex {
 }
 
 pub struct Viewport {
-    pub position: [f32; 2],
-    pub size: [f32; 2],
+    pub position: Vector2<f64>,
+    pub size: Vector2<f64>,
+}
+
+impl Viewport {
+    pub fn from_center_and_scale(
+        center: Vector2<f64>,
+        scale: f64,
+        screen_size: PhysicalSize<u32>,
+    ) -> Self {
+        let screen_size = Vector2 {
+            x: screen_size.width as f64,
+            y: screen_size.height as f64,
+        };
+        let size = screen_size / ((screen_size.x * screen_size.y).sqrt()) * scale;
+
+        Viewport {
+            position: center - size * 0.5,
+            size,
+        }
+    }
 }
 
 unsafe fn compile_shader(gl: &Gl, source: &str, kind: GLenum) -> GLuint {
@@ -200,8 +221,7 @@ impl Renderer {
         gl: &Gl,
         vertices: &Vec<Vertex>,
         indices: &Vec<u32>,
-        width: f64,
-        height: f64,
+        viewport: Viewport,
     ) {
         if vertices.len() == 0 || indices.len() == 0 {
             return;
@@ -241,11 +261,53 @@ impl Renderer {
             );
         }
 
-        gl.Uniform2f(self.displacement_uniform, -1.0, 1.0);
+        /*
+                gl_Position = displacement + in_pos*scale;
+
+                gl_Position(top_right) = (1, -1)
+                gl_Position(bottom_left) = (-1, 1)
+
+                in_pos(top_right) = viewport.position + viewport.size
+                in_pos(bottom_left) = viewport.position
+
+                (1, -1) = displacement + (viewport.position + viewport.size)*scale
+                (-1, 1) = displacement + (viewport.position)*scale
+        ------------------------
+                1 = displacement.x + (viewport.position.x + viewport.size.x)*scale.x
+                -1 = displacement.x + (viewport.position.x)*scale.x
+
+                -1 = displacement.y + (viewport.position.y + viewport.size.y)*scale.y
+                1 = displacement.y + (viewport.position.y)*scale.y
+                -----------------
+                1 = displacement.x + viewport.position.x*scale.x + viewport.size.x*scale.x
+                -1 = displacement.x + viewport.position.x*scale.x
+
+                -1 = displacement.y + viewport.position.y*scale.y + viewport.size.y*scale.y
+                1 = displacement.y + viewport.position.y*scale.y
+                -----------------
+                2 = viewport.size.x*scale.x
+                -2 = viewport.size.y*scale.y
+                -----------------
+                scale.x = 2.0/viewport.size.x
+                scale.y = -2.0/viewport.size.y
+                -----------------
+                -1 = displacement.x + viewport.position.x*2.0/viewport.size.x
+                1 = displacement.y + viewport.position.y*-2.0/viewport.size.y
+                -----------------
+                displacement.x = -1 - 2.0*viewport.position.x/viewport.size.x
+                displacement.y = 1 + 2.0*viewport.position.y/viewport.size.y
+
+                */
+
+        gl.Uniform2f(
+            self.displacement_uniform,
+            (-1.0 - 2.0 * viewport.position.x / viewport.size.x) as f32,
+            (1.0 + 2.0 * viewport.position.y / viewport.size.y) as f32,
+        );
         gl.Uniform2f(
             self.scale_uniform,
-            2.0 / (width as f32),
-            -2.0 / (height as f32),
+            (2.0 / viewport.size.x) as f32,
+            -(2.0 / viewport.size.y) as f32,
         );
 
         gl.DrawElements(

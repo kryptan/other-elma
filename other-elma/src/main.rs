@@ -9,6 +9,7 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
+use cgmath::Vector2;
 use gl::types::*;
 
 /*
@@ -79,24 +80,22 @@ fn main() {
                 //    dbg!(event);
             }
             Event::RedrawRequested(_) => {
-                let width = size.width as f64 / scale_factor;
-                let height = size.height as f64 / scale_factor;
+                // let width = size.width as f64 / scale_factor;
+                // let height = size.height as f64 / scale_factor;
 
                 unsafe {
-                    gl.ClearColor(1.0, 0.5, 1.0, 1.0);
+                    gl.ClearColor(0.0, 0.0, 0.0, 1.0);
                     gl.Clear(gl::COLOR_BUFFER_BIT);
                 }
 
+                let viewport = render::Viewport::from_center_and_scale(
+                    Vector2 { x: 0.0, y: 0.0 },
+                    100.0,
+                    size,
+                );
+
                 // Render batches.
-                unsafe {
-                    renderer.draw_batch(
-                        &gl,
-                        &vertices.vertices,
-                        &indices,
-                        width * 0.1,
-                        height * 0.1,
-                    )
-                };
+                unsafe { renderer.draw_batch(&gl, &vertices.vertices, &indices, viewport) };
 
                 windowed_context.swap_buffers().unwrap(); // FIXME: handle error
             }

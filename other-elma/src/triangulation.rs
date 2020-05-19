@@ -11,7 +11,7 @@ impl VertexConstructor<Point, Vertex> for () {
     fn new_vertex(&mut self, input: Point) -> Vertex {
         Vertex {
             position: [input.x, input.y],
-            color: [0.8, 0.2, 0.3, 1.0],
+            color: [1.0, 1.0, 1.0, 1.0],
         }
     }
 }
