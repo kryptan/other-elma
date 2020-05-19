@@ -20,7 +20,6 @@ fn main() {
         "CompileShader",
         "CreateProgram",
         "CreateShader",
-        "DepthFunc",
         "DeleteBuffers",
         "DeleteProgram",
         "DeleteTextures",

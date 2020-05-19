@@ -4,7 +4,6 @@ uniform sampler2D tex;
 in vec4 color;
 in vec2 tex_coord;
 in vec4 tex_bounds;
-in float depth;
 out vec4 pixel;
 
 void main() {
@@ -14,9 +13,5 @@ void main() {
         tex_bounds.y*(1.0 - a.y) + tex_bounds.w*a.y
     );
 
-    vec4 res = color + texture2D(tex, c);
-    pixel = res;
-    if (res.a > 0.5) {
-        gl_FragDepth = depth;
-    }
+    pixel = color + texture2D(tex, c);
 }
