@@ -112,7 +112,7 @@ fn main() {
         let time = time.elapsed().as_secs_f64();
         game_state
             .moto
-            .advance(control, time, &game_state.segments, &mut E);
+            .advance(control, time * 0.4368, &game_state.segments, &mut E);
 
         match event {
             Event::WindowEvent {
@@ -174,7 +174,7 @@ fn main() {
 
                 let viewport = render::Viewport::from_center_and_scale(
                     game_state.moto.bike.position,
-                    20.0,
+                    10.0,
                     size,
                 );
 

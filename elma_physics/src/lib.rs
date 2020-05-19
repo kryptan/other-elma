@@ -154,10 +154,30 @@ impl Segments {
                 if y0 > y1 {
                     mem::swap(&mut y0, &mut y1);
                 }
+
+                let mut lower = a;
+                let mut upper = b;
+                if lower.y > upper.y {
+                    mem::swap(&mut lower, &mut upper);
+                }
+
                 for y in (y0 as usize)..=(y1 as usize) {
                     // FIXME
                     let y0 = min_y + y as f64 * CELL_SIZE;
                     let y1 = min_y + (y as f64 + 1.0) * CELL_SIZE;
+
+                    let lu = upper - lower;
+                    let one = if lower.y >= y0 - 0.1 {
+                        lower.x
+                    } else {
+                        lower.x + lu.x * (y0 - lower.y) / lu.y
+                    };
+
+                    let two = if upper.y <= y1 + 0.1 {
+                        upper.x
+                    } else {
+                        lower.x + lu.x * (y1 - lower.y) / lu.y
+                    };
 
                     //  if
 
@@ -166,8 +186,8 @@ impl Segments {
                     let x0 = ((x0 - min_x) / CELL_SIZE).floor();
                     let x1 = ((x1 - min_x) / CELL_SIZE).floor();*/
 
-                    let mut x0 = ((a.x - min_x) / CELL_SIZE).floor();
-                    let mut x1 = ((b.x - min_x) / CELL_SIZE).floor();
+                    let mut x0 = ((one - min_x) / CELL_SIZE).floor();
+                    let mut x1 = ((two - min_x) / CELL_SIZE).floor();
                     if x0 > x1 {
                         mem::swap(&mut x0, &mut x1);
                     }
