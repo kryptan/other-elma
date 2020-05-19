@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 elma = "0.1"
 elma-lgr = "0.2"
+elma_physics = { path = "../elma_physics" }
 glutin = "0.24"
 cgmath = "0.17"
 lyon_tessellation = "0.15"

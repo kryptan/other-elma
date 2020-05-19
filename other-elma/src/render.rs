@@ -1,7 +1,7 @@
 use crate::gl;
 use crate::gl::types::*;
 use crate::gl::Gl;
-use cgmath::Vector2;
+use cgmath::{vec2, Vector2};
 use glutin::dpi::PhysicalSize;
 use std;
 use std::mem::size_of;
@@ -28,6 +28,7 @@ pub struct Vertex {
     pub color: [f32; 4],
 }
 
+#[derive(Debug)]
 pub struct Viewport {
     pub position: Vector2<f64>,
     pub size: Vector2<f64>,
@@ -39,10 +40,7 @@ impl Viewport {
         scale: f64,
         screen_size: PhysicalSize<u32>,
     ) -> Self {
-        let screen_size = Vector2 {
-            x: screen_size.width as f64,
-            y: screen_size.height as f64,
-        };
+        let screen_size = vec2(screen_size.width as f64, screen_size.height as f64);
         let size = screen_size / ((screen_size.x * screen_size.y).sqrt()) * scale;
 
         Viewport {
@@ -302,12 +300,12 @@ impl Renderer {
         gl.Uniform2f(
             self.displacement_uniform,
             (-1.0 - 2.0 * viewport.position.x / viewport.size.x) as f32,
-            (1.0 + 2.0 * viewport.position.y / viewport.size.y) as f32,
+            (-1.0 - 2.0 * viewport.position.y / viewport.size.y) as f32,
         );
         gl.Uniform2f(
             self.scale_uniform,
             (2.0 / viewport.size.x) as f32,
-            -(2.0 / viewport.size.y) as f32,
+            (2.0 / viewport.size.y) as f32,
         );
 
         gl.DrawElements(

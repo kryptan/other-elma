@@ -1,6 +1,14 @@
+use crate::render::Vertex;
+use cgmath::vec2;
 use elma::lev::Level;
-use glutin::event::{Event, WindowEvent};
+use elma::rec::EventType;
+use elma_physics::{Control, Events, Moto, Object};
+use gl::types::*;
+use glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use glutin::event_loop::ControlFlow;
+use lyon_tessellation::VertexBuffers;
+use std::ops::Add;
+use std::time::{Duration, Instant};
 
 mod render;
 mod triangulation;
@@ -9,17 +17,57 @@ mod gl {
     include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
 
-use cgmath::Vector2;
-use gl::types::*;
-
 /*
 mod gles {
     include!(concat!(env!("OUT_DIR"), "/gles_bindings.rs"));
 }*/
 
+struct GameState {
+    moto: Moto,
+    level: Level,
+}
+
+impl GameState {
+    fn new(path: &str) -> GameState {
+        let level = Level::load(path).unwrap();
+
+        let player = level
+            .objects
+            .iter()
+            .find(|object| object.is_player())
+            .unwrap();
+
+        let mut moto = Moto::new(vec2(player.position.x, player.position.y));
+
+        GameState { moto, level }
+    }
+}
+
+struct E;
+impl Events for E {
+    fn event(&mut self, kind: EventType) {
+        dbg!(kind);
+    }
+}
+
 fn main() {
-    let level = Level::load("E:/d/games/ElastoMania/Lev/0lp25.lev").unwrap();
-    let vertices = triangulation::triangulate(&level);
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp25.lev");
+    let VertexBuffers {
+        mut vertices,
+        mut indices,
+    } = triangulation::triangulate(&game_state.level);
+
+    for _ in 0..3 {
+        let v = vertices.len() as u32;
+        for _ in 0..4 {
+            vertices.push(Vertex {
+                position: [0.0, 0.0],
+                color: [0.0, 0.0, 1.0, 0.0],
+            });
+        }
+
+        indices.extend_from_slice(&[v, v + 1, v + 2, v, v + 2, v + 3]);
+    }
 
     let events_loop = glutin::event_loop::EventLoop::new();
     let window_builder = glutin::window::WindowBuilder::new()
@@ -40,12 +88,23 @@ fn main() {
     //  let _gles = gles::Gles2::load_with(|name| self.window.context().get_proc_address(name) as *const _);
 
     let mut renderer = unsafe { render::Renderer::new(&gl) };
+    let mut time = Instant::now();
+    let mut control = Control::default();
+    let mut next_frame_time = Instant::now();
 
     events_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
+        *control_flow = ControlFlow::WaitUntil(next_frame_time);
+        let now = Instant::now();
+        if now > next_frame_time {
+            windowed_context.window().request_redraw();
+            next_frame_time = now + Duration::from_millis(20);
+        }
 
         let mut close = false;
         let mut resize = false;
+
+        let time = time.elapsed().as_secs_f64();
+        game_state.moto.advance(control, time, &mut E);
 
         match event {
             Event::WindowEvent {
@@ -75,6 +134,21 @@ fn main() {
                 println!("new hidpi_factor = {}", scale_factor);
                 resize = true;
             }
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput { input, .. },
+                ..
+            } => {
+                if let Some(key) = input.virtual_keycode {
+                    let state = input.state == ElementState::Pressed;
+                    match key {
+                        VirtualKeyCode::Left => control.rotate_left = state,
+                        VirtualKeyCode::Right => control.rotate_right = state,
+                        VirtualKeyCode::Up => control.throttle = state,
+                        VirtualKeyCode::Down => control.brake = state,
+                        _ => {}
+                    }
+                }
+            }
             Event::WindowEvent { event, .. } => {
                 //    dbg!(event);
             }
@@ -88,15 +162,18 @@ fn main() {
                 }
 
                 let viewport = render::Viewport::from_center_and_scale(
-                    Vector2 { x: 0.0, y: 0.0 },
-                    100.0,
+                    game_state.moto.bike.position,
+                    20.0,
                     size,
                 );
 
-                // Render batches.
-                unsafe {
-                    renderer.draw_batch(&gl, &vertices.vertices, &vertices.indices, viewport)
-                };
+                let num_vertices = vertices.len();
+                let bike_vertices = &mut vertices[num_vertices - 4 * 3..];
+                object_to_vertices(&game_state.moto.wheels[0], &mut bike_vertices[0..4]);
+                object_to_vertices(&game_state.moto.wheels[1], &mut bike_vertices[4..8]);
+                object_to_vertices(&game_state.moto.bike, &mut bike_vertices[8..12]);
+
+                unsafe { renderer.draw_batch(&gl, &vertices, &indices, viewport) };
 
                 windowed_context.swap_buffers().unwrap(); // FIXME: handle error
             }
@@ -116,6 +193,21 @@ fn main() {
     });
 
     //  unsafe { renderer.cleanup(&gl) };
+}
+
+fn object_to_vertices(object: &Object, vertices: &mut [Vertex]) {
+    let (sin, cos) = object.angular_position.sin_cos();
+    let v = 0.4 * vec2(cos, sin);
+    let pos = [
+        object.position - v,
+        object.position + vec2(v.y, -v.x),
+        object.position + v,
+        object.position + vec2(-v.y, v.x),
+    ];
+
+    for i in 0..4 {
+        vertices[i].position = [pos[i].x as f32, pos[i].y as f32];
+    }
 }
 
 /*

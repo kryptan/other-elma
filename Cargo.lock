@@ -297,22 +297,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "elma-physics"
-version = "0.1.0"
-dependencies = [
- "cgmath",
-]
-
-[[package]]
 name = "elma2"
 version = "0.1.0"
 dependencies = [
  "cgmath",
  "elma",
  "elma-lgr 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "elma_physics",
  "gl_generator 0.14.0",
  "glutin",
  "lyon_tessellation",
+]
+
+[[package]]
+name = "elma_physics"
+version = "0.1.0"
+dependencies = [
+ "cgmath",
+ "elma",
 ]
 
 [[package]]
