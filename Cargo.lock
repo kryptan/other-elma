@@ -42,6 +42,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
+
+[[package]]
 name = "autocfg"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -313,24 +319,16 @@ dependencies = [
  "elma-lgr 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gl_generator 0.14.0",
  "glutin",
- "lyon_core",
- "lyon_path",
- "lyon_path_builder",
- "lyon_path_iterator",
  "lyon_tessellation",
 ]
 
 [[package]]
 name = "euclid"
-version = "0.10.5"
+version = "0.20.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93a556290e09f379cbfaa4f75ac52a72a3d2deb7d04076f312cdb2e6acba28e"
+checksum = "667703ececa1ac04d1d40ae0c0fd6401b91d8caccfda3a65458ca8ee5dfedf1c"
 dependencies = [
- "heapsize",
- "log 0.3.9",
- "num-traits 0.1.43",
- "rustc-serialize",
- "serde 0.8.23",
+ "num-traits 0.2.11",
 ]
 
 [[package]]
@@ -377,7 +375,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca98bbde17256e02d17336a6bdb5a50f7d0ccacee502e191d3e3d0ec2f96f84a"
 dependencies = [
  "khronos_api",
- "log 0.4.8",
+ "log",
  "xml-rs",
 ]
 
@@ -388,7 +386,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a95dfc23a2b4a9a2f5ab41d194f8bfda3cabec42af4e39f08c339eb2a0c124d"
 dependencies = [
  "khronos_api",
- "log 0.4.8",
+ "log",
  "xml-rs",
 ]
 
@@ -410,7 +408,7 @@ dependencies = [
  "glutin_wgl_sys",
  "lazy_static",
  "libloading",
- "log 0.4.8",
+ "log",
  "objc",
  "osmesa-sys",
  "parking_lot",
@@ -462,15 +460,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a93dba7ee3a0feeac0f437141ff25e71ce2066bcf1a706acab1559ffff94eb6a"
 dependencies = [
  "gl_generator 0.13.1",
-]
-
-[[package]]
-name = "heapsize"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "556cd479866cf85c3f671209c85e8a6990211c916d1002c2fcb2e9b7cf60bc36"
-dependencies = [
- "kernel32-sys",
 ]
 
 [[package]]
@@ -567,15 +556,6 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
-dependencies = [
- "log 0.4.8",
-]
-
-[[package]]
-name = "log"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14b6052be84e6b71ab17edffc2eeabf5c2c3ae1fdb464aae35ac50c67a44e1f7"
@@ -584,65 +564,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "lyon_bezier"
-version = "0.3.2"
+name = "lyon_geom"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f42648e614f7455035159dbcfbf02847bbd4e2ece02b47ce6dec19b37ce01b0"
+checksum = "9962a2ba81382716b87d7d358493cb71844c1f9165ddad763cd9f4d3f5474df2"
 dependencies = [
+ "arrayvec",
  "euclid",
-]
-
-[[package]]
-name = "lyon_core"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c062eabb81d4d8d5ead3d8faca20327364393896086cf06c0641be7ce32b4dce"
-dependencies = [
- "euclid",
+ "num-traits 0.2.11",
 ]
 
 [[package]]
 name = "lyon_path"
-version = "0.3.2"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6b98bc7b33820d790db97f5bb386a59c08ffa0cb8f2afb31c780985576883bc"
+checksum = "c81a044414965c051b7b4785770820d23146480a2d8573cd825f03a00a5b8dd8"
 dependencies = [
- "lyon_bezier",
- "lyon_core",
- "lyon_path_builder",
- "lyon_path_iterator",
-]
-
-[[package]]
-name = "lyon_path_builder"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0263385c6f3415339fa2bd9f67076fba7fd715356f5d14da6da807d2daf234d"
-dependencies = [
- "lyon_bezier",
- "lyon_core",
-]
-
-[[package]]
-name = "lyon_path_iterator"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f906125bab7b899caee8c8109c5985f4f5fa44e9ab3fa82bfda2580f93b778c"
-dependencies = [
- "lyon_bezier",
- "lyon_core",
+ "lyon_geom",
 ]
 
 [[package]]
 name = "lyon_tessellation"
-version = "0.3.2"
+version = "0.15.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "395afe37de5cd72ee28f7bdf4fec72868833f9e1caf8ca6e34317205a38f5fe4"
+checksum = "a71f29de2e42414f80fd10a1c568a34b2cc911a85506f6bc36366d3b198c6398"
 dependencies = [
- "lyon_core",
+ "arrayvec",
  "lyon_path",
- "lyon_path_builder",
- "lyon_path_iterator",
+ "sid",
 ]
 
 [[package]]
@@ -688,7 +637,7 @@ dependencies = [
  "iovec",
  "kernel32-sys",
  "libc",
- "log 0.4.8",
+ "log",
  "miow",
  "net2",
  "slab",
@@ -702,7 +651,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52403fe290012ce777c4626790c8951324a2b9e3316b3143779c72b029742f19"
 dependencies = [
  "lazycell",
- "log 0.4.8",
+ "log",
  "mio",
  "slab",
 ]
@@ -739,7 +688,7 @@ dependencies = [
  "android_log-sys",
  "lazy_static",
  "libc",
- "log 0.4.8",
+ "log",
  "ndk",
  "ndk-sys",
 ]
@@ -1137,12 +1086,6 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "serde"
-version = "0.8.23"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dad3f759919b92c3068c696c15c3d17238234498bbdcc80f2c469606f948ac8"
-
-[[package]]
-name = "serde"
 version = "1.0.110"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99e7b308464d16b56eba9964e4972a3eee817760ab60d88c3f86e1fecb08204c"
@@ -1155,6 +1098,15 @@ checksum = "5a9e7e0f2bfae24d8a5b5a66c5b257a83c7412304311512a0c054cd5e619da11"
 dependencies = [
  "lazy_static",
  "libc",
+]
+
+[[package]]
+name = "sid"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd5ac56c121948b4879bba9e519852c211bcdd8f014efff766441deff0b91bdb"
+dependencies = [
+ "num-traits 0.2.11",
 ]
 
 [[package]]
@@ -1211,7 +1163,7 @@ version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ffc92d160b1eef40665be3a05630d003936a3bc7da7421277846c2613e92c71a"
 dependencies = [
- "serde 1.0.110",
+ "serde",
 ]
 
 [[package]]
@@ -1367,7 +1319,7 @@ dependencies = [
  "instant",
  "lazy_static",
  "libc",
- "log 0.4.8",
+ "log",
  "mio",
  "mio-extras",
  "ndk",

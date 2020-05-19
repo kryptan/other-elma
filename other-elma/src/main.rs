@@ -20,7 +20,6 @@ mod gles {
 fn main() {
     let level = Level::load("E:/d/games/ElastoMania/Lev/0lp25.lev").unwrap();
     let vertices = triangulation::triangulate(&level);
-    let indices: Vec<u32> = vertices.indices.iter().map(|&i| i as u32).collect();
 
     let events_loop = glutin::event_loop::EventLoop::new();
     let window_builder = glutin::window::WindowBuilder::new()
@@ -95,7 +94,9 @@ fn main() {
                 );
 
                 // Render batches.
-                unsafe { renderer.draw_batch(&gl, &vertices.vertices, &indices, viewport) };
+                unsafe {
+                    renderer.draw_batch(&gl, &vertices.vertices, &vertices.indices, viewport)
+                };
 
                 windowed_context.swap_buffers().unwrap(); // FIXME: handle error
             }

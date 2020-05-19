@@ -1,14 +1,12 @@
 use crate::render::Vertex;
 use elma::lev::Level;
-use lyon_core::math::{point, Point};
-use lyon_path::Path;
-use lyon_path_builder::*;
-use lyon_path_iterator::*;
-use lyon_tessellation::geometry_builder::{BuffersBuilder, VertexBuffers, VertexConstructor};
-use lyon_tessellation::path_fill::*;
+use lyon_tessellation::geom::math::{point, Point};
+use lyon_tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
+use lyon_tessellation::path::Path;
+use lyon_tessellation::{FillAttributes, FillOptions, FillTessellator, FillVertexConstructor};
 
-impl VertexConstructor<Point, Vertex> for () {
-    fn new_vertex(&mut self, input: Point) -> Vertex {
+impl FillVertexConstructor<Vertex> for () {
+    fn new_vertex(&mut self, input: Point, _attributes: FillAttributes) -> Vertex {
         Vertex {
             position: [input.x, input.y],
             color: [1.0, 1.0, 1.0, 1.0],
@@ -16,7 +14,7 @@ impl VertexConstructor<Point, Vertex> for () {
     }
 }
 
-pub fn triangulate(level: &Level) -> VertexBuffers<Vertex> {
+pub fn triangulate(level: &Level) -> VertexBuffers<Vertex, u32> {
     // Create a simple path.
     let mut path_builder = Path::builder();
     for polygon in &level.polygons {
@@ -35,23 +33,17 @@ pub fn triangulate(level: &Level) -> VertexBuffers<Vertex> {
     let path = path_builder.build();
 
     // Create the destination vertex and index buffers.
-    let mut buffers: VertexBuffers<Vertex> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<Vertex, u32> = VertexBuffers::new();
 
-    {
-        // Create the destination vertex and index buffers.
-        let mut vertex_builder = BuffersBuilder::new(&mut buffers, ()); //simple_builder(&mut buffers);
+    // Create the destination vertex and index buffers.
+    let mut vertex_builder = BuffersBuilder::new(&mut buffers, ()); //simple_builder(&mut buffers);
 
-        // Create the tessellator.
-        let mut tessellator = FillTessellator::new();
+    // Create the tessellator.
+    let mut tessellator = FillTessellator::new();
 
-        // Allocate the FillEvents object and initialize it from a path iterator.
-        let events = FillEvents::from_iter(path.path_iter().flattened(0.05));
-
-        // Compute the tessellation.
-        let result =
-            tessellator.tessellate_events(&events, &FillOptions::default(), &mut vertex_builder);
-        assert!(result.is_ok());
-    }
+    // Compute the tessellation.
+    let result = tessellator.tessellate_path(&path, &FillOptions::default(), &mut vertex_builder);
+    assert!(result.is_ok());
 
     buffers
 }
