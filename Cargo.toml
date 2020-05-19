@@ -1,2 +1,2 @@
 [workspace]
-members = ["elma-lgr", "elma_physics", "other-elma"]
+members = ["elma_physics", "other-elma"]

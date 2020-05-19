@@ -11,6 +11,8 @@ elma_physics = { path = "../elma_physics" }
 glutin = "0.24"
 cgmath = "0.17"
 lyon_tessellation = "0.15"
+pcx = "0.2"
+rect_packer = "0.2"
 
 [build-dependencies]
 gl_generator = "0.14"

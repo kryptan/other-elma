@@ -1,4 +1,5 @@
 use crate::render::Vertex;
+use crate::texture::Texture;
 use cgmath::vec2;
 use elma::lev::Level;
 use elma::rec::EventType;
@@ -7,10 +8,10 @@ use gl::types::*;
 use glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use glutin::event_loop::ControlFlow;
 use lyon_tessellation::VertexBuffers;
-use std::ops::Add;
 use std::time::{Duration, Instant};
 
 mod render;
+mod texture;
 mod triangulation;
 
 mod gl {
@@ -38,7 +39,7 @@ impl GameState {
             .find(|object| object.is_player())
             .unwrap();
 
-        let mut moto = Moto::new(vec2(player.position.x, player.position.y));
+        let moto = Moto::new(vec2(player.position.x, player.position.y));
         let segments = Segments::new(&level.polygons);
 
         GameState {
@@ -57,18 +58,31 @@ impl Events for E {
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp25.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp21.lev");
+
     let VertexBuffers {
         mut vertices,
         mut indices,
     } = triangulation::triangulate(&game_state.level);
 
+    let texture = Texture::new("E:/d/games/ElastoMania/default.lgr");
+
     for _ in 0..3 {
         let v = vertices.len() as u32;
-        for _ in 0..4 {
+        let pic = texture.get("Q1WHEEL.pcx");
+
+        for i in 0..4 {
             vertices.push(Vertex {
                 position: [0.0, 0.0],
-                color: [0.0, 0.0, 1.0, 0.0],
+                color: [0.0, 0.0, 1.0, 1.0],
+                tex_coord: match i {
+                    0 => [pic.bounds[0], pic.bounds[1]],
+                    1 => [pic.bounds[2], pic.bounds[1]],
+                    2 => [pic.bounds[2], pic.bounds[3]],
+                    3 => [pic.bounds[0], pic.bounds[3]],
+                    _ => unreachable!(),
+                },
+                tex_bounds: pic.bounds,
             });
         }
 
@@ -82,6 +96,7 @@ fn main() {
 
     let windowed_context = glutin::ContextBuilder::new()
         .with_vsync(true)
+        // .with_multisampling(0)
         .build_windowed(window_builder, &events_loop)
         .unwrap();
 
@@ -94,7 +109,7 @@ fn main() {
     //  let _gles = gles::Gles2::load_with(|name| self.window.context().get_proc_address(name) as *const _);
 
     let mut renderer = unsafe { render::Renderer::new(&gl) };
-    let mut time = Instant::now();
+    let time = Instant::now();
     let mut control = Control::default();
     let mut next_frame_time = Instant::now();
 
@@ -160,7 +175,7 @@ fn main() {
                     }
                 }
             }
-            Event::WindowEvent { event, .. } => {
+            Event::WindowEvent { event: _event, .. } => {
                 //    dbg!(event);
             }
             Event::RedrawRequested(_) => {
@@ -208,7 +223,7 @@ fn main() {
 
 fn object_to_vertices(object: &Object, vertices: &mut [Vertex]) {
     let (sin, cos) = object.angular_position.sin_cos();
-    let v = 0.4 * vec2(cos, sin);
+    let v = 0.4 * 2.0f64.sqrt() * vec2(cos, sin);
     let pos = [
         object.position - v,
         object.position + vec2(v.y, -v.x),

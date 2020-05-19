@@ -26,6 +26,8 @@ pub struct Renderer {
 pub struct Vertex {
     pub position: [f32; 2],
     pub color: [f32; 4],
+    pub tex_coord: [f32; 2],
+    pub tex_bounds: [f32; 4],
 }
 
 #[derive(Debug)]
@@ -169,6 +171,8 @@ impl Renderer {
         let attributes = [
             ("in_pos\0", 2, offset_of!(Vertex, position)),
             ("in_color\0", 4, offset_of!(Vertex, color)),
+            ("in_tex_coord\0", 2, offset_of!(Vertex, tex_coord)),
+            ("in_tex_bounds\0", 4, offset_of!(Vertex, tex_bounds)),
         ];
 
         for &(name, size, offset) in &attributes {
@@ -187,8 +191,6 @@ impl Renderer {
         let displacement_uniform =
             gl.GetUniformLocation(program, "displacement\0".as_ptr() as *const GLchar);
         let scale_uniform = gl.GetUniformLocation(program, "scale\0".as_ptr() as *const GLchar);
-        let hidpi_factor_uniform =
-            gl.GetUniformLocation(program, "hidpi_factor\0".as_ptr() as *const GLchar);
 
         gl.Enable(gl::BLEND);
         gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
@@ -315,11 +317,17 @@ impl Renderer {
             ptr::null(),
         );
     }
-
-    /*   pub unsafe fn cleanup(self, gl: &Gl) {
-        gl.DeleteProgram(self.program);
-        gl.DeleteShader(self.fragment_shader);
-        gl.DeleteShader(self.vertex_shader);
-        gl.DeleteBuffers(2, [self.vertex_buffer, self.index_buffer].as_ptr());
-    }*/
 }
+
+/*
+impl Drop for Renderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl.DeleteProgram(self.program);
+            gl.DeleteShader(self.fragment_shader);
+            gl.DeleteShader(self.vertex_shader);
+            gl.DeleteBuffers(2, [self.vertex_buffer, self.index_buffer].as_ptr());
+        }
+    }
+}
+*/

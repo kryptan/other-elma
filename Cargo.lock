@@ -281,19 +281,11 @@ dependencies = [
 [[package]]
 name = "elma-lgr"
 version = "0.2.0"
-dependencies = [
- "byteorder 1.3.4",
- "pcx",
-]
-
-[[package]]
-name = "elma-lgr"
-version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cf9b1f7255908ffa857704367c89153ce5e3969147e6f0ebad42cdd40117258"
 dependencies = [
  "byteorder 0.5.3",
- "pcx",
+ "pcx 0.1.2",
 ]
 
 [[package]]
@@ -302,11 +294,13 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "elma",
- "elma-lgr 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "elma-lgr",
  "elma_physics",
  "gl_generator 0.14.0",
  "glutin",
  "lyon_tessellation",
+ "pcx 0.2.3",
+ "rect_packer",
 ]
 
 [[package]]
@@ -820,6 +814,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "pcx"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b00b062973776578e7863f8395f86e821760d827384f1ad9371d0893c87481a"
+dependencies = [
+ "byteorder 1.3.4",
+]
+
+[[package]]
 name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -999,6 +1002,12 @@ checksum = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
 dependencies = [
  "rand_core 0.3.1",
 ]
+
+[[package]]
+name = "rect_packer"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8ffb4dfda4b01cc420847665dc480760d596ce186f2772a66ed32fe9acb1c45"
 
 [[package]]
 name = "redox_syscall"

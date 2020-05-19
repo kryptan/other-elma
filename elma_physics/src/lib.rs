@@ -1,4 +1,4 @@
-use cgmath::{dot, vec2, Basis2, InnerSpace, Rad, Rotation2, Vector2};
+use cgmath::{dot, vec2, InnerSpace, Vector2};
 use elma::lev::Polygon;
 use elma::rec::EventType;
 use std::mem;
@@ -35,12 +35,9 @@ pub const PI: f64 = 3.141592; // sic
 const CELL_SIZE: f64 = 1.0;
 
 struct Segment {
-    /// One of the segment's ends.
+    /// Ends.
     a: Vector2<f64>,
     b: Vector2<f64>,
-
-    /// Vector from point A to point B.
-    ab: Vector2<f64>,
 
     /// Normalized AB.
     dir: Vector2<f64>,
@@ -112,10 +109,6 @@ impl Segments {
                 num_segments += 1;
             }
         }
-        dbg!(min_x);
-        dbg!(min_y);
-        dbg!(max_x);
-        dbg!(max_y);
 
         let width = ((max_x - min_x) / CELL_SIZE).ceil() as usize + 1;
         let height = ((max_y - min_y) / CELL_SIZE).ceil() as usize + 1;
@@ -144,7 +137,6 @@ impl Segments {
                 segments.push(Segment {
                     a,
                     b,
-                    ab,
                     dir: ab / length,
                     length,
                 });
@@ -193,7 +185,6 @@ impl Segments {
                     }
 
                     for x in (x0 as usize)..=(x1 as usize) {
-                        println!("add ({} {}) = {}", x, y, index);
                         table[y * width + x].push(index as u32);
                     }
                 }
