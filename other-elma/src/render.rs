@@ -1,6 +1,7 @@
 use crate::gl;
 use crate::gl::types::*;
 use crate::gl::Gl;
+use crate::texture::Texture;
 use cgmath::{vec2, Vector2};
 use glutin::dpi::PhysicalSize;
 use std;
@@ -13,6 +14,8 @@ pub struct Renderer {
 
     index_buffer: GLuint,
     index_buffer_capacity: usize,
+
+    texture: GLuint,
 
     vertex_shader: GLuint,
     fragment_shader: GLuint,
@@ -146,7 +149,7 @@ macro_rules! offset_of {
 }
 
 impl Renderer {
-    pub unsafe fn new(gl: &Gl) -> Self {
+    pub unsafe fn new(gl: &Gl, tex: &mut Texture) -> Self {
         glsl_version(gl);
 
         let mut vertex_buffer = 0;
@@ -156,6 +159,25 @@ impl Renderer {
         let mut index_buffer = 0;
         gl.GenBuffers(1, &mut index_buffer);
         gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, index_buffer);
+
+        let mut texture = 0;
+        gl.GenTextures(1, &mut texture);
+        gl.BindTexture(gl::TEXTURE_2D, texture);
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as _);
+        gl.TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as _);
+        gl.TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::SRGB8 as _,
+            tex.tex_width as _,
+            tex.tex_height as _,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            tex.texture.as_ptr() as *const _,
+        );
+
+        tex.texture.clear();
 
         let vertex_shader =
             compile_shader(gl, include_str!("shader/ground.vert"), gl::VERTEX_SHADER);
@@ -206,6 +228,8 @@ impl Renderer {
 
             index_buffer,
             index_buffer_capacity: 0,
+
+            texture,
 
             vertex_shader,
             fragment_shader,

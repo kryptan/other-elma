@@ -53,28 +53,30 @@ impl GameState {
 struct E;
 impl Events for E {
     fn event(&mut self, kind: EventType) {
-        dbg!(kind);
+        //  dbg!(kind);
     }
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp21.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp14.lev");
 
     let VertexBuffers {
         mut vertices,
         mut indices,
     } = triangulation::triangulate(&game_state.level);
 
-    let texture = Texture::new("E:/d/games/ElastoMania/default.lgr");
+    let mut texture = Texture::new("E:/d/games/ElastoMania/default.lgr");
 
     for _ in 0..3 {
         let v = vertices.len() as u32;
         let pic = texture.get("Q1WHEEL.pcx");
 
+        dbg!(pic.bounds);
+
         for i in 0..4 {
             vertices.push(Vertex {
                 position: [0.0, 0.0],
-                color: [0.0, 0.0, 1.0, 1.0],
+                color: [0.0, 0.0, 0.0, 0.0],
                 tex_coord: match i {
                     0 => [pic.bounds[0], pic.bounds[1]],
                     1 => [pic.bounds[2], pic.bounds[1]],
@@ -108,7 +110,7 @@ fn main() {
     let gl = gl::Gl::load_with(|name| windowed_context.get_proc_address(name) as *const _);
     //  let _gles = gles::Gles2::load_with(|name| self.window.context().get_proc_address(name) as *const _);
 
-    let mut renderer = unsafe { render::Renderer::new(&gl) };
+    let mut renderer = unsafe { render::Renderer::new(&gl, &mut texture) };
     let time = Instant::now();
     let mut control = Control::default();
     let mut next_frame_time = Instant::now();
@@ -141,7 +143,6 @@ fn main() {
                 ..
             } => {
                 size = new_size;
-                println!("new size = {:?}", new_size);
                 resize = true;
             }
             Event::WindowEvent {
@@ -154,7 +155,6 @@ fn main() {
             } => {
                 scale_factor = new_scale_factor;
                 size = *new_inner_size;
-                println!("new hidpi_factor = {}", scale_factor);
                 resize = true;
             }
             Event::WindowEvent {
@@ -212,7 +212,6 @@ fn main() {
         }
 
         if close {
-            println!("close");
             *control_flow = ControlFlow::Exit;
             return;
         }

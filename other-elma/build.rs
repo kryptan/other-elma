@@ -1,8 +1,8 @@
-use gl_generator::{Registry, Fallbacks, StructGenerator, Api, Profile};
+use gl_generator::{Api, Fallbacks, Profile, Registry, StructGenerator};
+use std::collections::BTreeSet;
 use std::env;
 use std::fs::File;
 use std::path::Path;
-use std::collections::BTreeSet;
 
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
@@ -11,6 +11,7 @@ fn main() {
     let functions: BTreeSet<&'static str> = [
         "AttachShader",
         "BindBuffer",
+        "BindTexture",
         "BlendFunc",
         "BufferData",
         "BufferSubData",
@@ -27,6 +28,7 @@ fn main() {
         "EnableVertexAttribArray",
         "GenBuffers",
         "GetAttribLocation",
+        "GenTextures",
         "GetProgramInfoLog",
         "GetProgramiv",
         "GetShaderInfoLog",
@@ -36,53 +38,62 @@ fn main() {
         "LineWidth",
         "LinkProgram",
         "PolygonMode",
+        "TexParameteri",
+        "TexImage2D",
         "ShaderSource",
         "Uniform1f",
         "Uniform2f",
         "UseProgram",
         "VertexAttribPointer",
         "Viewport",
-    ].iter().cloned().collect();
+    ]
+    .iter()
+    .cloned()
+    .collect();
 
     let mut file = File::create(&Path::new(&out_dir).join("gl_bindings.rs")).unwrap();
     let mut registry = Registry::new(Api::Gl, (3, 0), Profile::Core, Fallbacks::All, []);
-    registry.cmds = registry.cmds.into_iter().filter(|cmd| functions.contains(cmd.proto.ident.as_str())).collect();
+    registry.cmds = registry
+        .cmds
+        .into_iter()
+        .filter(|cmd| functions.contains(cmd.proto.ident.as_str()))
+        .collect();
     registry.write_bindings(StructGenerator, &mut file).unwrap();
 
     /*  let functions: BTreeSet<&'static str> = [
-          "Clear",
-          "Enable",
-          "BlendFunc",
-          "Uniform1f",
-          "Uniform2f",
-          "BufferData",
-          "UseProgram",
-          "BindBuffer",
-          "GenBuffers",
-          "ClearColor",
-          "LinkProgram",
-          "GetShaderiv",
-          "AttachShader",
-          "CreateProgram",
-          "CreateShader",
-          "ShaderSource",
-          "GetProgramiv",
-          "DeleteShader",
-          "DrawElements",
-          "CompileShader",
-          "DeleteBuffers",
-          "DeleteProgram",
-          "BufferSubData",
-          "GetShaderInfoLog",
-          "GetProgramInfoLog",
-          "GetAttribLocation",
-          "GetUniformLocation",
-          "VertexAttribPointer",
-          "EnableVertexAttribArray",
-      ].into_iter().cloned().collect();
+        "Clear",
+        "Enable",
+        "BlendFunc",
+        "Uniform1f",
+        "Uniform2f",
+        "BufferData",
+        "UseProgram",
+        "BindBuffer",
+        "GenBuffers",
+        "ClearColor",
+        "LinkProgram",
+        "GetShaderiv",
+        "AttachShader",
+        "CreateProgram",
+        "CreateShader",
+        "ShaderSource",
+        "GetProgramiv",
+        "DeleteShader",
+        "DrawElements",
+        "CompileShader",
+        "DeleteBuffers",
+        "DeleteProgram",
+        "BufferSubData",
+        "GetShaderInfoLog",
+        "GetProgramInfoLog",
+        "GetAttribLocation",
+        "GetUniformLocation",
+        "VertexAttribPointer",
+        "EnableVertexAttribArray",
+    ].into_iter().cloned().collect();
 
-      let mut file = File::create(&Path::new(&out_dir).join("gles_bindings.rs")).unwrap();
-      Registry::new(Api::Gles2, (3, 0), Profile::Core, Fallbacks::All, []);
-      registry.cmds = registry.cmds.into_iter().filter(|cmd| functions.contains(cmd.proto.ident.as_str())).collect();
-      registry.write_bindings(StructGenerator, &mut file).unwrap();*/
+    let mut file = File::create(&Path::new(&out_dir).join("gles_bindings.rs")).unwrap();
+    Registry::new(Api::Gles2, (3, 0), Profile::Core, Fallbacks::All, []);
+    registry.cmds = registry.cmds.into_iter().filter(|cmd| functions.contains(cmd.proto.ident.as_str())).collect();
+    registry.write_bindings(StructGenerator, &mut file).unwrap();*/
 }

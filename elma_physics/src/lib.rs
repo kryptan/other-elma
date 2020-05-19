@@ -58,10 +58,6 @@ pub struct Segments {
 
 impl Segment {
     fn collision(&self, pos: Vector2<f64>, r: f64) -> Option<Vector2<f64>> {
-        /*    dbg!(pos);
-        dbg!(r);
-        dbg!(self.a);
-        dbg!(self.b);*/
         let vector = pos - self.a;
         let fraction = dot(vector, self.dir);
 
@@ -238,10 +234,8 @@ impl Segments {
         let mut collision = false;
         for &corner in &corners {
             for &i in self.cell(corner) {
-                //   dbg!(i);
                 let segment = &self.segments[i as usize];
                 if let Some(point) = segment.collision(pos, r) {
-                    //    dbg!(i);
                     if !collision {
                         collisions[0] = point;
                         collision = true;
@@ -502,10 +496,6 @@ fn advance(
         let mut collisions = [vec2(0.0, 0.0); 2];
         let mut num_collisions =
             segments.collision_test(moto.wheels[i].position, WHEEL_RADIUS, &mut collisions);
-
-        /*  if num_collisions > 0 {
-          //  dbg!(num_collisions);
-        }*/
 
         if num_collisions >= 1 {
             moto.wheels[i].push_out(collisions[0]);

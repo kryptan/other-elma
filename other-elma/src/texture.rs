@@ -1,5 +1,6 @@
 use cgmath::Vector2;
 use elma::lgr::{Picture, PictureData, LGR};
+use image::RgbaImage;
 use rect_packer::{Config, Packer};
 use std::collections::BTreeMap;
 
@@ -53,21 +54,23 @@ impl Texture {
             for row in 0..height as usize {
                 reader.next_row_paletted(&mut buffer).unwrap();
                 for x in 0..width as usize {
-                    texture[(rect.y as usize + row * height as usize + rect.x as usize + x) * 4] =
-                        buffer[x];
+                    texture[((rect.y as usize + row) * tex_width as usize + rect.x as usize + x)
+                        * 4] = buffer[x];
                 }
             }
 
             let mut palette = [0; 256 * 3];
             let palette_len = reader.read_palette(&mut palette).unwrap();
+            dbg!(palette.iter().collect::<Vec<&u8>>());
             for row in 0..height as usize {
                 for x in 0..width as usize {
-                    let i = (rect.y as usize + row * height as usize + rect.x as usize + x) * 4;
+                    let i =
+                        ((rect.y as usize + row) * tex_width as usize + rect.x as usize + x) * 4;
                     let index = texture[i] as usize;
                     for c in 0..3 {
                         texture[i + c] = palette[index * 3 + c];
                     }
-                    texture[i + 1] = 255; // FIXME: set transparency
+                    texture[i + 3] = 255; // FIXME: set transparency
                 }
             }
 
@@ -85,6 +88,11 @@ impl Texture {
                 },
             );
         }
+
+        RgbaImage::from_raw(tex_width as _, tex_height as _, texture.clone())
+            .unwrap()
+            .save("texture.png")
+            .unwrap();
 
         Texture {
             pics,
