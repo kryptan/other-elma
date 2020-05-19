@@ -2,7 +2,7 @@ use crate::render::Vertex;
 use cgmath::vec2;
 use elma::lev::Level;
 use elma::rec::EventType;
-use elma_physics::{Control, Events, Moto, Object};
+use elma_physics::{Control, Events, Moto, Object, Segments};
 use gl::types::*;
 use glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use glutin::event_loop::ControlFlow;
@@ -25,6 +25,7 @@ mod gles {
 struct GameState {
     moto: Moto,
     level: Level,
+    segments: Segments,
 }
 
 impl GameState {
@@ -38,8 +39,13 @@ impl GameState {
             .unwrap();
 
         let mut moto = Moto::new(vec2(player.position.x, player.position.y));
+        let segments = Segments::new(&level.polygons);
 
-        GameState { moto, level }
+        GameState {
+            moto,
+            level,
+            segments,
+        }
     }
 }
 
@@ -104,7 +110,9 @@ fn main() {
         let mut resize = false;
 
         let time = time.elapsed().as_secs_f64();
-        game_state.moto.advance(control, time, &mut E);
+        game_state
+            .moto
+            .advance(control, time, &game_state.segments, &mut E);
 
         match event {
             Event::WindowEvent {
@@ -145,6 +153,9 @@ fn main() {
                         VirtualKeyCode::Right => control.rotate_right = state,
                         VirtualKeyCode::Up => control.throttle = state,
                         VirtualKeyCode::Down => control.brake = state,
+                        VirtualKeyCode::Space if state => {
+                            game_state.moto.direction = !game_state.moto.direction
+                        }
                         _ => {}
                     }
                 }

@@ -1,5 +1,7 @@
-use cgmath::{vec2, Basis2, InnerSpace, Rad, Rotation2, Vector2};
+use cgmath::{dot, vec2, Basis2, InnerSpace, Rad, Rotation2, Vector2};
+use elma::lev::Polygon;
 use elma::rec::EventType;
+use std::mem;
 
 pub const HEAD_RADIUS: f64 = 0.238;
 pub const OBJECT_RADIUS: f64 = 0.4;
@@ -23,16 +25,19 @@ pub const WHEEL_K0: f64 = 1000.0;
 pub const HEAD_K: f64 = 50000.0;
 pub const HEAD_K0: f64 = 3000.0;
 
-pub const GRAVITY: f64 = 0.0 * 10.0;
+pub const GRAVITY: f64 = 10.0;
 
 pub const WHEEL_POSITIONS: [Vector2<f64>; 2] = [vec2(-0.85, -0.6), vec2(0.85, -0.6)];
 pub const HEAD_POSITION: Vector2<f64> = vec2(0.0, 0.44);
 
 pub const PI: f64 = 3.141592; // sic
 
+const CELL_SIZE: f64 = 1.0;
+
 struct Segment {
     /// One of the segment's ends.
     a: Vector2<f64>,
+    b: Vector2<f64>,
 
     /// Vector from point A to point B.
     ab: Vector2<f64>,
@@ -46,13 +51,213 @@ struct Segment {
     length: f64,
 }
 
+pub struct Segments {
+    min: Vector2<f64>,
+    segments: Vec<Segment>,
+    width: usize,
+    height: usize,
+    table: Vec<Vec<u32>>,
+}
+
+impl Segment {
+    fn collision(&self, pos: Vector2<f64>, r: f64) -> Option<Vector2<f64>> {
+        /*    dbg!(pos);
+        dbg!(r);
+        dbg!(self.a);
+        dbg!(self.b);*/
+        let vector = pos - self.a;
+        let fraction = dot(vector, self.dir);
+
+        if fraction < 0.0 {
+            if vector.magnitude() >= r {
+                None
+            } else {
+                Some(self.a)
+            }
+        } else if fraction <= self.length {
+            if self.dir.perp_dot(vector).abs() > r {
+                None
+            } else {
+                Some(self.a + self.dir * fraction)
+            }
+        } else {
+            if (pos - self.b).magnitude() >= r {
+                None
+            } else {
+                Some(self.b)
+            }
+        }
+    }
+}
+
+impl Segments {
+    pub fn new(polygons: &[Polygon]) -> Segments {
+        let mut min_x = f64::INFINITY;
+        let mut max_x = -f64::INFINITY;
+        let mut min_y = f64::INFINITY;
+        let mut max_y = -f64::INFINITY;
+
+        let mut num_segments: i32 = 0;
+        for polygon in polygons {
+            if polygon.grass {
+                continue;
+            }
+
+            num_segments -= 1;
+            for vertex in &polygon.vertices {
+                min_x = min_x.min(vertex.x);
+                min_y = min_y.min(vertex.y);
+                max_x = max_x.max(vertex.x);
+                max_y = max_y.max(vertex.y);
+                num_segments += 1;
+            }
+        }
+        dbg!(min_x);
+        dbg!(min_y);
+        dbg!(max_x);
+        dbg!(max_y);
+
+        let width = ((max_x - min_x) / CELL_SIZE).ceil() as usize + 1;
+        let height = ((max_y - min_y) / CELL_SIZE).ceil() as usize + 1;
+
+        let mut segments = Vec::with_capacity(num_segments as usize);
+        let mut table = vec![vec![]; width * height];
+
+        for polygon in polygons {
+            if polygon.grass {
+                continue;
+            }
+
+            let mut prev = if let Some(vertex) = polygon.vertices.last() {
+                vertex.clone()
+            } else {
+                continue;
+            };
+
+            for vertex in &polygon.vertices {
+                let a = vec2(prev.x, prev.y);
+                let b = vec2(vertex.x, vertex.y);
+                let ab = b - a;
+                let length = ab.magnitude();
+
+                let index = segments.len();
+                segments.push(Segment {
+                    a,
+                    b,
+                    ab,
+                    dir: ab / length,
+                    length,
+                });
+
+                let mut y0 = ((a.y - min_y) / CELL_SIZE).floor();
+                let mut y1 = ((b.y - min_y) / CELL_SIZE).floor();
+                if y0 > y1 {
+                    mem::swap(&mut y0, &mut y1);
+                }
+                for y in (y0 as usize)..=(y1 as usize) {
+                    // FIXME
+                    let y0 = min_y + y as f64 * CELL_SIZE;
+                    let y1 = min_y + (y as f64 + 1.0) * CELL_SIZE;
+
+                    //  if
+
+                    /*    let x0 = a.x + ab.x * (y0 - a.y) / ab.y;
+                    let x1 = a.x + ab.x * (y1 - a.y) / ab.y;
+                    let x0 = ((x0 - min_x) / CELL_SIZE).floor();
+                    let x1 = ((x1 - min_x) / CELL_SIZE).floor();*/
+
+                    let mut x0 = ((a.x - min_x) / CELL_SIZE).floor();
+                    let mut x1 = ((b.x - min_x) / CELL_SIZE).floor();
+                    if x0 > x1 {
+                        mem::swap(&mut x0, &mut x1);
+                    }
+
+                    for x in (x0 as usize)..=(x1 as usize) {
+                        println!("add ({} {}) = {}", x, y, index);
+                        table[y * width + x].push(index as u32);
+                    }
+                }
+
+                prev = vertex.clone();
+            }
+        }
+
+        Segments {
+            min: vec2(min_x, min_y),
+            segments,
+            width,
+            height,
+            table,
+        }
+    }
+
+    fn cell(&self, pos: Vector2<f64>) -> &[u32] {
+        if pos.x < self.min.x - CELL_SIZE || pos.y < self.min.y - CELL_SIZE {
+            return &[];
+        }
+
+        let pos = (pos - self.min) / CELL_SIZE;
+        let pos = vec2(pos.x.floor(), pos.y.floor());
+        if pos.x > self.width as f64 || pos.y > self.height as f64 {
+            return &[];
+        }
+
+        let x = pos.x as usize;
+        let y = pos.y as usize;
+        if x > self.width || y > self.height {
+            return &[];
+        }
+
+        &self.table[y * self.width + x]
+    }
+
+    fn collision_test(
+        &self,
+        pos: Vector2<f64>,
+        r: f64,
+        collisions: &mut [Vector2<f64>; 2],
+    ) -> usize {
+        let corners = [
+            pos + vec2(r, r),
+            pos + vec2(r, -r),
+            pos + vec2(-r, -r),
+            pos + vec2(-r, r),
+        ];
+
+        let mut collision = false;
+        for &corner in &corners {
+            for &i in self.cell(corner) {
+                //   dbg!(i);
+                let segment = &self.segments[i as usize];
+                if let Some(point) = segment.collision(pos, r) {
+                    //    dbg!(i);
+                    if !collision {
+                        collisions[0] = point;
+                        collision = true;
+                    } else {
+                        collisions[1] = point;
+
+                        if (collisions[0] - collisions[1]).magnitude() >= 0.1 {
+                            return 2;
+                        }
+
+                        collisions[0] = (collisions[0] + collisions[1]) * 0.5;
+                    }
+                }
+            }
+        }
+
+        collision as usize
+    }
+}
+
 pub struct Moto {
     pub wheels: [Object; 2],
     pub bike: Object,
     head_position: Vector2<f64>,
     head_velocity: Vector2<f64>,
     braking: bool,
-    direction: bool,
+    pub direction: bool,
     rotation_left: bool,
     rotation_right: bool,
     eaten_apples: i32,
@@ -118,11 +323,17 @@ impl Moto {
         }
     }
 
-    pub fn advance(&mut self, control: Control, t: f64, events: &mut impl Events) {
+    pub fn advance(
+        &mut self,
+        control: Control,
+        t: f64,
+        segments: &Segments,
+        events: &mut impl Events,
+    ) {
         let dt = 0.001;
         while self.time < t {
             self.time += dt;
-            advance(self, control, self.time, dt, events);
+            advance(self, control, self.time, dt, segments, events);
         }
     }
 }
@@ -131,7 +342,14 @@ pub trait Events {
     fn event(&mut self, kind: EventType);
 }
 
-fn advance(moto: &mut Moto, control: Control, t: f64, dt: f64, events: &mut impl Events) {
+fn advance(
+    moto: &mut Moto,
+    control: Control,
+    t: f64,
+    dt: f64,
+    segments: &Segments,
+    events: &mut impl Events,
+) {
     let mut rotate_left = false;
     let mut rotate_right = false;
 
@@ -224,24 +442,28 @@ fn advance(moto: &mut Moto, control: Control, t: f64, dt: f64, events: &mut impl
 
     if moto.rotation_right && t > ROTATION_PERIOD * 0.25 + moto.rotation_time {
         moto.bike.angular_velocity += ROTATION_SPEED_FAST;
-        moto.bike.angular_velocity =
-            min(moto.bike.angular_velocity, moto.rotation_angular_velocity);
+        moto.bike.angular_velocity = moto
+            .bike
+            .angular_velocity
+            .min(moto.rotation_angular_velocity);
 
         if moto.bike.angular_velocity > 0.0 {
             moto.bike.angular_velocity -= ROTATION_SPEED_SLOW;
-            moto.bike.angular_velocity = max(moto.bike.angular_velocity, 0.0);
+            moto.bike.angular_velocity = moto.bike.angular_velocity.max(0.0);
         }
 
         moto.rotation_right = false;
     }
     if moto.rotation_left && t > ROTATION_PERIOD * 0.25 + moto.rotation_time {
         moto.bike.angular_velocity -= ROTATION_SPEED_FAST;
-        moto.bike.angular_velocity =
-            max(moto.bike.angular_velocity, moto.rotation_angular_velocity);
+        moto.bike.angular_velocity = moto
+            .bike
+            .angular_velocity
+            .max(moto.rotation_angular_velocity);
 
         if moto.bike.angular_velocity < 0.0 {
             moto.bike.angular_velocity += ROTATION_SPEED_SLOW;
-            moto.bike.angular_velocity = min(moto.bike.angular_velocity, 0.0);
+            moto.bike.angular_velocity = moto.bike.angular_velocity.min(0.0);
         }
 
         moto.rotation_left = false;
@@ -265,9 +487,94 @@ fn advance(moto: &mut Moto, control: Control, t: f64, dt: f64, events: &mut impl
     moto.head_velocity += (head_force / BIKE_MASS + moto.gravity) * dt;
     moto.head_position += moto.head_velocity * dt;
 
-    // FIXME: add collision detection for wheels here
-
     for i in 0..2 {
+        let mut collisions = [vec2(0.0, 0.0); 2];
+        let mut num_collisions =
+            segments.collision_test(moto.wheels[i].position, WHEEL_RADIUS, &mut collisions);
+
+        /*  if num_collisions > 0 {
+          //  dbg!(num_collisions);
+        }*/
+
+        if num_collisions >= 1 {
+            moto.wheels[i].push_out(collisions[0]);
+        }
+        if num_collisions >= 2 {
+            moto.wheels[i].push_out(collisions[1]);
+        }
+
+        let v = moto.wheels[i].velocity;
+        if num_collisions == 2 {
+            let v_magnitude = v.magnitude();
+            if v_magnitude > 1.0 {
+                if !moto.wheels[i].test(
+                    collisions[0],
+                    collisions[1],
+                    v,
+                    moto.wheels[i].angular_velocity,
+                ) {
+                    num_collisions = 1;
+                    collisions[0] = collisions[1];
+                } else if !moto.wheels[i].test(
+                    collisions[1],
+                    collisions[0],
+                    v,
+                    moto.wheels[i].angular_velocity,
+                ) {
+                    num_collisions = 1;
+                }
+            }
+            if v_magnitude < 1.0 {
+                if !moto.wheels[i].test(
+                    collisions[0],
+                    collisions[1],
+                    wheel_forces[i],
+                    wheel_angular_forces[i],
+                ) {
+                    num_collisions = 1;
+                    collisions[0] = collisions[1];
+                } else if !moto.wheels[i].test(
+                    collisions[1],
+                    collisions[0],
+                    wheel_forces[i],
+                    wheel_angular_forces[i],
+                ) {
+                    num_collisions = 1;
+                }
+            }
+        }
+
+        if num_collisions == 2 && !moto.wheels[i].collision(collisions[1], wheel_forces[i], events)
+        {
+            num_collisions = 1;
+        }
+        if num_collisions >= 1 && !moto.wheels[i].collision(collisions[0], wheel_forces[i], events)
+        {
+            if num_collisions == 2 {
+                collisions[0] = collisions[1];
+            }
+            num_collisions -= 1;
+        }
+
+        if num_collisions == 2 {
+            moto.wheels[i].velocity = vec2(0.0, 0.0);
+            moto.wheels[i].angular_velocity = 0.0;
+            continue;
+        }
+        if num_collisions == 1 {
+            let r = moto.wheels[i].position - collisions[0];
+            let length = r.magnitude();
+            let dir = rotate_90(r / length);
+            moto.wheels[i].angular_velocity = dot(dir, v) / WHEEL_RADIUS
+                + (dot(dir, wheel_forces[i]) * WHEEL_RADIUS + wheel_angular_forces[i])
+                    / (length * length * WHEEL_MASS + WHEEL_ANGULAR_MASS)
+                    * dt;
+            moto.wheels[i].angular_position += moto.wheels[i].angular_velocity * dt;
+            moto.wheels[i].velocity = (moto.wheels[i].angular_velocity * WHEEL_RADIUS) * dir;
+            moto.wheels[i].position += moto.wheels[i].velocity * dt;
+            continue;
+        }
+
         moto.wheels[i].angular_velocity +=
             wheel_angular_forces[i] * (1.0 / WHEEL_ANGULAR_MASS) * dt;
         moto.wheels[i].angular_position += moto.wheels[i].angular_velocity * dt;
@@ -279,6 +586,49 @@ fn advance(moto: &mut Moto, control: Control, t: f64, dt: f64, events: &mut impl
     moto.bike.angular_position += moto.bike.angular_velocity * dt;
     moto.bike.velocity += (bike_force * (1.0 / BIKE_MASS) + moto.gravity) * dt;
     moto.bike.position += moto.bike.velocity * dt;
+}
+
+impl Object {
+    fn push_out(&mut self, collision: Vector2<f64>) {
+        let vector = self.position - collision;
+        let dist = vector.magnitude();
+        let r = WHEEL_RADIUS - 0.005;
+        if dist < r {
+            self.position += vector / dist * (r - dist);
+        }
+    }
+
+    fn test(
+        &self,
+        collision0: Vector2<f64>,
+        collision1: Vector2<f64>,
+        v: Vector2<f64>,
+        a: f64,
+    ) -> bool {
+        let r = self.position - collision0;
+        r.perp_dot(collision0 - collision1) * (r.perp_dot(v) + a) >= 0.0
+    }
+
+    fn collision(
+        &mut self,
+        collision: Vector2<f64>,
+        f: Vector2<f64>,
+        events: &mut impl Events,
+    ) -> bool {
+        let x = (self.position - collision).normalize();
+        let vx = dot(x, self.velocity);
+        if vx > -0.01 && dot(x, f) > 0.0 {
+            return false;
+        }
+
+        self.velocity -= vx * x;
+        let vx = vx.abs();
+        if vx > 1.5 {
+            events.event(EventType::Ground((vx * 0.125).min(0.99) as f32));
+        }
+
+        true
+    }
 }
 
 fn compute_bike_wheel_forces(
@@ -325,9 +675,9 @@ fn compute_head_pos(moto: &mut Moto, x: Vector2<f64>, y: Vector2<f64>) {
         bh -= vec_453be0 * dot_product;
     }
 
-    bh.x = min(bh.x, normal_position.x);
-    bh.y = min(bh.y, normal_position.y);
-    bh.x = max(bh.x, -0.5);
+    bh.x = bh.x.min(normal_position.x);
+    bh.y = bh.y.min(normal_position.y);
+    bh.x = bh.x.max(-0.5);
 
     if bh.x > 0.0 && bh.y > 0.0 {
         let k = normal_position.y / normal_position.x;
@@ -389,21 +739,5 @@ fn fix_angle(a: &mut f64) {
         *a += 2.0 * PI;
     } else if *a > PI {
         *a -= 2.0 * PI;
-    }
-}
-
-fn min(a: f64, b: f64) -> f64 {
-    if a < b {
-        a
-    } else {
-        b
-    }
-}
-
-fn max(a: f64, b: f64) -> f64 {
-    if a > b {
-        a
-    } else {
-        b
     }
 }
