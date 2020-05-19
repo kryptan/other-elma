@@ -1,3 +1,4 @@
+use cgmath::{vec2, Vector2};
 use elma::lgr::{Picture, PictureType, Transparency, LGR};
 use image::RgbaImage;
 use rect_packer::{Config, Packer, Rect};
@@ -13,6 +14,7 @@ pub struct Texture {
 pub struct Pic {
     pub info: Option<Picture>,
     pub bounds: [f32; 4],
+    pub size: Vector2<f64>,
 }
 
 impl Texture {
@@ -111,6 +113,7 @@ impl Texture {
                         (rect.x + rect.width) as f32 / tex_width as f32,
                         (rect.y + rect.height) as f32 / tex_height as f32,
                     ],
+                    size: vec2(width as f64, height as f64),
                 },
             );
         }
@@ -129,6 +132,7 @@ impl Texture {
     }
 
     pub fn get(&self, name: &str) -> &Pic {
+        //   dbg!(name);
         self.pics.get(name).unwrap()
     }
 }

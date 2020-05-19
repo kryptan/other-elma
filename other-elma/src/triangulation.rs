@@ -10,8 +10,8 @@ impl FillVertexConstructor<Vertex> for () {
         Vertex {
             position: [input.x, input.y],
             color: [1.0, 1.0, 1.0, 1.0],
-            tex_coord: [0.0, 0.0],
-            tex_bounds: [0.0, 0.0, 0.0, 0.0],
+            tex_coord: [0.0; 2],
+            tex_bounds: [0.0; 4],
         }
     }
 }

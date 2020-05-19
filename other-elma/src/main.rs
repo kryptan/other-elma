@@ -1,6 +1,6 @@
 use crate::render::Vertex;
-use crate::texture::Texture;
-use cgmath::vec2;
+use crate::texture::{Pic, Texture};
+use cgmath::{vec2, Vector2};
 use elma::lev::Level;
 use elma::rec::EventType;
 use elma_physics::{Control, Events, Moto, Object, Segments};
@@ -57,39 +57,65 @@ impl Events for E {
     }
 }
 
-fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp08.lev");
+struct Scene {
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
+}
 
-    let VertexBuffers {
-        mut vertices,
-        mut indices,
-    } = triangulation::triangulate(&game_state.level);
-
-    let mut texture = Texture::new("E:/d/games/ElastoMania/lgr/default.lgr");
-
-    for _ in 0..3 {
-        let v = vertices.len() as u32;
-        let pic = texture.get("Q1WHEEL.pcx");
-
-        dbg!(pic.bounds);
+impl Scene {
+    fn add_image(&mut self, pic: &Pic, position: Vector2<f64>) -> usize {
+        let v = self.vertices.len() as u32;
 
         for i in 0..4 {
-            vertices.push(Vertex {
-                position: [0.0, 0.0],
+            let v = match i {
+                0 => vec2(0.0, 0.0),
+                1 => vec2(1.0, 0.0),
+                2 => vec2(1.0, 1.0),
+                3 => vec2(0.0, 1.0),
+                _ => unreachable!(),
+            };
+            let p = position + 0.021 * vec2(v.x * pic.size.x, -v.y * pic.size.y); // FIXME: the exact coefficient isn't known
+
+            self.vertices.push(Vertex {
+                position: [p.x as f32, p.y as f32],
                 color: [0.0, 0.0, 0.0, 0.0],
-                tex_coord: match i {
-                    0 => [pic.bounds[0], pic.bounds[1]],
-                    1 => [pic.bounds[2], pic.bounds[1]],
-                    2 => [pic.bounds[2], pic.bounds[3]],
-                    3 => [pic.bounds[0], pic.bounds[3]],
-                    _ => unreachable!(),
-                },
+                tex_coord: [v.x as f32, v.y as f32],
                 tex_bounds: pic.bounds,
             });
         }
 
-        indices.extend_from_slice(&[v, v + 1, v + 2, v, v + 2, v + 3]);
+        self.indices
+            .extend_from_slice(&[v, v + 1, v + 2, v, v + 2, v + 3]);
+
+        v as usize
     }
+}
+
+fn main() {
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz055.lev");
+
+    let mut texture = Texture::new("E:/d/games/ElastoMania/lgr/default.lgr");
+    let ground_texture = texture.get(&(game_state.level.ground.clone() + ".pcx"));
+
+    let VertexBuffers { vertices, indices } = triangulation::triangulate(&game_state.level);
+    let mut scene = Scene { vertices, indices };
+
+    for pic in &game_state.level.pictures {
+        if pic.name.is_empty() {
+            continue;
+        }
+
+        println!("picture = {}", pic.name);
+        let pic2 = texture.get(&(pic.name.clone() + ".pcx"));
+        scene.add_image(pic2, vec2(pic.position.x, pic.position.y));
+    }
+
+    let wheel_pic = texture.get("Q1WHEEL.pcx");
+    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0));
+    let wheels = [
+        scene.add_image(wheel_pic, vec2(0.0, 0.0)),
+        scene.add_image(wheel_pic, vec2(0.0, 0.0)),
+    ];
 
     let events_loop = glutin::event_loop::EventLoop::new();
     let window_builder = glutin::window::WindowBuilder::new()
@@ -189,17 +215,19 @@ fn main() {
 
                 let viewport = render::Viewport::from_center_and_scale(
                     game_state.moto.bike.position,
-                    10.0,
+                    15.0,
                     size,
                 );
 
-                let num_vertices = vertices.len();
-                let bike_vertices = &mut vertices[num_vertices - 4 * 3..];
-                object_to_vertices(&game_state.moto.wheels[0], &mut bike_vertices[0..4]);
-                object_to_vertices(&game_state.moto.wheels[1], &mut bike_vertices[4..8]);
-                object_to_vertices(&game_state.moto.bike, &mut bike_vertices[8..12]);
+                for i in 0..2 {
+                    object_to_vertices(
+                        &game_state.moto.wheels[i],
+                        &mut scene.vertices[wheels[i]..],
+                    );
+                }
+                object_to_vertices(&game_state.moto.bike, &mut scene.vertices[bike..]);
 
-                unsafe { renderer.draw_batch(&gl, &vertices, &indices, viewport) };
+                unsafe { renderer.draw_batch(&gl, &scene.vertices, &scene.indices, viewport) };
 
                 windowed_context.swap_buffers().unwrap(); // FIXME: handle error
             }
