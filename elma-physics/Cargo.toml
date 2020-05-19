@@ -5,4 +5,4 @@ authors = ["kryptan"]
 edition = "2018"
 
 [dependencies]
-cgmath = "0.12"
+cgmath = "0.17"
