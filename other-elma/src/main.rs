@@ -63,7 +63,7 @@ struct Scene {
 }
 
 impl Scene {
-    fn add_image(&mut self, pic: &Pic, position: Vector2<f64>) -> usize {
+    fn add_image(&mut self, pic: &Pic, position: Vector2<f64>, depth: i32) -> usize {
         let v = self.vertices.len() as u32;
 
         for i in 0..4 {
@@ -81,6 +81,7 @@ impl Scene {
                 color: [0.0, 0.0, 0.0, 0.0],
                 tex_coord: [v.x as f32, v.y as f32],
                 tex_bounds: pic.bounds,
+                depth: depth as f32,
             });
         }
 
@@ -107,14 +108,14 @@ fn main() {
 
         println!("picture = {}", pic.name);
         let pic2 = texture.get(&(pic.name.clone() + ".pcx"));
-        scene.add_image(pic2, vec2(pic.position.x, pic.position.y));
+        scene.add_image(pic2, vec2(pic.position.x, pic.position.y), pic.distance);
     }
 
     let wheel_pic = texture.get("Q1WHEEL.pcx");
-    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0));
+    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0), 500);
     let wheels = [
-        scene.add_image(wheel_pic, vec2(0.0, 0.0)),
-        scene.add_image(wheel_pic, vec2(0.0, 0.0)),
+        scene.add_image(wheel_pic, vec2(0.0, 0.0), 500),
+        scene.add_image(wheel_pic, vec2(0.0, 0.0), 500),
     ];
 
     let events_loop = glutin::event_loop::EventLoop::new();
@@ -125,6 +126,7 @@ fn main() {
     let windowed_context = glutin::ContextBuilder::new()
         .with_vsync(true)
         // .with_multisampling(0)
+        .with_depth_buffer(16)
         .build_windowed(window_builder, &events_loop)
         .unwrap();
 
@@ -210,7 +212,8 @@ fn main() {
 
                 unsafe {
                     gl.ClearColor(0.0, 0.0, 0.0, 1.0);
-                    gl.Clear(gl::COLOR_BUFFER_BIT);
+                    //   gl.ClearDepth(0.0);
+                    gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 }
 
                 let viewport = render::Viewport::from_center_and_scale(

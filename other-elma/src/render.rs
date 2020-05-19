@@ -31,6 +31,7 @@ pub struct Vertex {
     pub color: [f32; 4],
     pub tex_coord: [f32; 2],
     pub tex_bounds: [f32; 4],
+    pub depth: f32,
 }
 
 #[derive(Debug)]
@@ -195,6 +196,7 @@ impl Renderer {
             ("in_color\0", 4, offset_of!(Vertex, color)),
             ("in_tex_coord\0", 2, offset_of!(Vertex, tex_coord)),
             ("in_tex_bounds\0", 4, offset_of!(Vertex, tex_bounds)),
+            ("in_depth\0", 1, offset_of!(Vertex, depth)),
         ];
 
         for &(name, size, offset) in &attributes {
@@ -214,6 +216,8 @@ impl Renderer {
             gl.GetUniformLocation(program, "displacement\0".as_ptr() as *const GLchar);
         let scale_uniform = gl.GetUniformLocation(program, "scale\0".as_ptr() as *const GLchar);
 
+        gl.Enable(gl::DEPTH_TEST);
+        gl.DepthFunc(gl::LESS);
         gl.Enable(gl::BLEND);
         gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         //    gl.PolygonMode(gl::FRONT_AND_BACK, gl::LINE);

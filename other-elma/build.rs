@@ -8,7 +8,7 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
 
     // Avoid bloating executable by only including function names we need.
-    let functions: BTreeSet<&'static str> = [
+    /*let functions: BTreeSet<&'static str> = [
         "AttachShader",
         "BindBuffer",
         "BindTexture",
@@ -20,6 +20,7 @@ fn main() {
         "CompileShader",
         "CreateProgram",
         "CreateShader",
+        "DepthFunc",
         "DeleteBuffers",
         "DeleteProgram",
         "DeleteTextures",
@@ -50,14 +51,14 @@ fn main() {
     ]
     .iter()
     .cloned()
-    .collect();
+    .collect();*/
 
     let mut file = File::create(&Path::new(&out_dir).join("gl_bindings.rs")).unwrap();
     let mut registry = Registry::new(Api::Gl, (3, 0), Profile::Core, Fallbacks::All, []);
     registry.cmds = registry
         .cmds
         .into_iter()
-        .filter(|cmd| functions.contains(cmd.proto.ident.as_str()))
+        // .filter(|cmd| functions.contains(cmd.proto.ident.as_str()))
         .collect();
     registry.write_bindings(StructGenerator, &mut file).unwrap();
 
