@@ -22,6 +22,7 @@ fn main() {
         "CreateShader",
         "DeleteBuffers",
         "DeleteProgram",
+        "DeleteTextures",
         "DeleteShader",
         "DrawElements",
         "Enable",

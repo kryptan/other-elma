@@ -52,20 +52,20 @@ impl GameState {
 
 struct E;
 impl Events for E {
-    fn event(&mut self, kind: EventType) {
+    fn event(&mut self, _kind: EventType) {
         //  dbg!(kind);
     }
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp12.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp08.lev");
 
     let VertexBuffers {
         mut vertices,
         mut indices,
     } = triangulation::triangulate(&game_state.level);
 
-    let mut texture = Texture::new("E:/d/games/ElastoMania/default.lgr");
+    let mut texture = Texture::new("E:/d/games/ElastoMania/lgr/default.lgr");
 
     for _ in 0..3 {
         let v = vertices.len() as u32;
@@ -213,6 +213,9 @@ fn main() {
 
         if close {
             *control_flow = ControlFlow::Exit;
+            unsafe {
+                renderer.cleanup(&gl);
+            }
             return;
         }
     });

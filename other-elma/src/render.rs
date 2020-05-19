@@ -341,17 +341,17 @@ impl Renderer {
             ptr::null(),
         );
     }
+
+    pub unsafe fn cleanup(&mut self, gl: &Gl) {
+        gl.DeleteProgram(self.program);
+        gl.DeleteShader(self.fragment_shader);
+        gl.DeleteShader(self.vertex_shader);
+        gl.DeleteBuffers(2, [self.vertex_buffer, self.index_buffer].as_ptr());
+        gl.DeleteTextures(1, [self.texture].as_ptr());
+    }
 }
 
 /*
 impl Drop for Renderer {
-    fn drop(&mut self) {
-        unsafe {
-            gl.DeleteProgram(self.program);
-            gl.DeleteShader(self.fragment_shader);
-            gl.DeleteShader(self.vertex_shader);
-            gl.DeleteBuffers(2, [self.vertex_buffer, self.index_buffer].as_ptr());
-        }
-    }
 }
 */

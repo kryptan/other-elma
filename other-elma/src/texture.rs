@@ -1,5 +1,4 @@
-use cgmath::Vector2;
-use elma::lgr::{Picture, PictureData, Transparency, LGR};
+use elma::lgr::{Picture, PictureType, Transparency, LGR};
 use image::RgbaImage;
 use rect_packer::{Config, Packer, Rect};
 use std::collections::BTreeMap;
@@ -59,14 +58,15 @@ impl Texture {
             }
 
             let mut palette = [0; 256 * 3];
-            let palette_len = reader.read_palette(&mut palette).unwrap();
+            let _palette_len = reader.read_palette(&mut palette).unwrap();
 
             let info = info.remove(&image.name);
-            let transparency = info
+            let (transparency, kind) = info
                 .as_ref()
-                .map(|info| info.transparency)
-                .unwrap_or(Transparency::TopLeft);
+                .map(|info| (info.transparency, info.picture_type))
+                .unwrap_or((Transparency::TopLeft, PictureType::Normal));
             let transparent = match transparency {
+                _ if kind == PictureType::Texture => None,
                 Transparency::Solid => None,
                 Transparency::Palette => Some(0),
                 Transparency::TopLeft => Some(texture[index(0, 0, tex_width, rect)]),
