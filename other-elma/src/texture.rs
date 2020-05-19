@@ -1,7 +1,7 @@
 use cgmath::Vector2;
-use elma::lgr::{Picture, PictureData, LGR};
+use elma::lgr::{Picture, PictureData, Transparency, LGR};
 use image::RgbaImage;
-use rect_packer::{Config, Packer};
+use rect_packer::{Config, Packer, Rect};
 use std::collections::BTreeMap;
 
 pub struct Texture {
@@ -54,27 +54,53 @@ impl Texture {
             for row in 0..height as usize {
                 reader.next_row_paletted(&mut buffer).unwrap();
                 for x in 0..width as usize {
-                    texture[((rect.y as usize + row) * tex_width as usize + rect.x as usize + x)
-                        * 4] = buffer[x];
+                    texture[index(row, x, tex_width, rect)] = buffer[x];
                 }
             }
 
             let mut palette = [0; 256 * 3];
             let palette_len = reader.read_palette(&mut palette).unwrap();
-            dbg!(palette.iter().collect::<Vec<&u8>>());
+
+            let info = info.remove(&image.name);
+            let transparency = info
+                .as_ref()
+                .map(|info| info.transparency)
+                .unwrap_or(Transparency::TopLeft);
+            let transparent = match transparency {
+                Transparency::Solid => None,
+                Transparency::Palette => Some(0),
+                Transparency::TopLeft => Some(texture[index(0, 0, tex_width, rect)]),
+                Transparency::TopRight => {
+                    Some(texture[index(0, width as usize - 1, tex_width, rect)])
+                }
+                Transparency::BottomLeft => {
+                    Some(texture[index(height as usize - 1, 0, tex_width, rect)])
+                }
+                Transparency::BottomRight => {
+                    Some(texture[index(height as usize - 1, width as usize - 1, tex_width, rect)])
+                }
+            };
+
+            dbg!(transparent);
+
             for row in 0..height as usize {
                 for x in 0..width as usize {
-                    let i =
-                        ((rect.y as usize + row) * tex_width as usize + rect.x as usize + x) * 4;
-                    let index = texture[i] as usize;
-                    for c in 0..3 {
-                        texture[i + c] = palette[index * 3 + c];
+                    let i = index(row, x, tex_width, rect);
+                    let index = texture[i];
+                    if Some(index) == transparent {
+                        texture[i + 0] = 0;
+                        texture[i + 1] = 0;
+                        texture[i + 2] = 0;
+                        texture[i + 3] = 0;
+                    } else {
+                        for c in 0..3 {
+                            texture[i + c] = palette[index as usize * 3 + c];
+                        }
+                        texture[i + 3] = 255;
                     }
-                    texture[i + 3] = 255; // FIXME: set transparency
                 }
             }
 
-            let info = info.remove(&image.name);
             pics.insert(
                 image.name,
                 Pic {
@@ -105,4 +131,8 @@ impl Texture {
     pub fn get(&self, name: &str) -> &Pic {
         self.pics.get(name).unwrap()
     }
+}
+
+fn index(row: usize, column: usize, tex_width: i32, rect: Rect) -> usize {
+    ((rect.y as usize + row) * tex_width as usize + rect.x as usize + column) * 4
 }

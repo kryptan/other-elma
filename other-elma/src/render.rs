@@ -168,7 +168,7 @@ impl Renderer {
         gl.TexImage2D(
             gl::TEXTURE_2D,
             0,
-            gl::SRGB8 as _,
+            gl::SRGB_ALPHA as _, // FIXME: use sgrb
             tex.tex_width as _,
             tex.tex_height as _,
             0,

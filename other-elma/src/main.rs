@@ -58,7 +58,7 @@ impl Events for E {
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp14.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp12.lev");
 
     let VertexBuffers {
         mut vertices,

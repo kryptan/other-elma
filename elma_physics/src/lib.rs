@@ -335,7 +335,7 @@ impl Moto {
         segments: &Segments,
         events: &mut impl Events,
     ) {
-        let dt = 0.001;
+        let dt = 0.0001;
         while self.time < t {
             self.time += dt;
             advance(self, control, self.time, dt, segments, events);
