@@ -1,3 +1,4 @@
+#![feature(bool_to_option)]
 use crate::atlas::Atlas;
 use crate::render::PictureVertex;
 use crate::scene::Scene;

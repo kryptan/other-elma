@@ -26,6 +26,7 @@ pub struct Scene {
 
 struct Object {
     index: usize,
+    position_y: Option<f64>,
     bounds: [f32; 4],
     num_frames: i32,
 }
@@ -121,6 +122,7 @@ impl Scene {
             scene.objects.push(Object {
                 index,
                 bounds: sprite.bounds,
+                position_y: (object.object_type != ObjectType::Killer).then_some(object.position.y),
                 num_frames: (sprite.size.x / sprite.size.y).round() as i32,
             });
         }
@@ -169,6 +171,16 @@ impl Scene {
         for object in &self.objects {
             let vertices = &mut self.vertices[object.index..object.index + 4];
             let frame = (frame % object.num_frames) as f32;
+
+            if let Some(position_y) = object.position_y {
+                let shift = (time * 4.0).sin() * 0.1; // FIXME: exact parameters are unknown
+                let top = (position_y + OBJECT_RADIUS + shift) as f32;
+                let bottom = (position_y - OBJECT_RADIUS + shift) as f32;
+                vertices[0].position[1] = top;
+                vertices[1].position[1] = top;
+                vertices[2].position[1] = bottom;
+                vertices[3].position[1] = bottom;
+            }
 
             for vertex in vertices {
                 vertex.tex_bounds = [
