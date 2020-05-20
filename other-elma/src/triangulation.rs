@@ -1,22 +1,20 @@
-use crate::render::Vertex;
+use crate::render::PolygonVertex;
 use elma::lev::Level;
 use lyon_tessellation::geom::math::{point, Point};
 use lyon_tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon_tessellation::path::Path;
 use lyon_tessellation::{FillAttributes, FillOptions, FillTessellator, FillVertexConstructor};
 
-impl FillVertexConstructor<Vertex> for () {
-    fn new_vertex(&mut self, input: Point, _attributes: FillAttributes) -> Vertex {
-        Vertex {
+impl FillVertexConstructor<PolygonVertex> for () {
+    fn new_vertex(&mut self, input: Point, _attributes: FillAttributes) -> PolygonVertex {
+        PolygonVertex {
             position: [input.x, input.y],
-            color: [1.0, 1.0, 1.0, 1.0],
-            tex_coord: [0.0; 2],
-            tex_bounds: [0.0; 4],
+            clip: 0.0,
         }
     }
 }
 
-pub fn triangulate(level: &Level) -> VertexBuffers<Vertex, u32> {
+pub fn triangulate(level: &Level) -> VertexBuffers<PolygonVertex, u32> {
     // Create a simple path.
     let mut path_builder = Path::builder();
     for polygon in &level.polygons {
@@ -35,7 +33,7 @@ pub fn triangulate(level: &Level) -> VertexBuffers<Vertex, u32> {
     let path = path_builder.build();
 
     // Create the destination vertex and index buffers.
-    let mut buffers: VertexBuffers<Vertex, u32> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<PolygonVertex, u32> = VertexBuffers::new();
 
     // Create the destination vertex and index buffers.
     let mut vertex_builder = BuffersBuilder::new(&mut buffers, ()); //simple_builder(&mut buffers);

@@ -1,17 +1,17 @@
-use crate::render::Vertex;
-use crate::texture::{Pic, Texture};
+use crate::atlas::{Atlas, Pic};
+use crate::render::PictureVertex;
 use cgmath::{vec2, Vector2};
 use elma::lev::Level;
 use elma::rec::EventType;
+use elma::Clip;
 use elma_physics::{Control, Events, Moto, Object, Segments};
 use gl::types::*;
 use glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use glutin::event_loop::ControlFlow;
-use lyon_tessellation::VertexBuffers;
 use std::time::{Duration, Instant};
 
+mod atlas;
 mod render;
-mod texture;
 mod triangulation;
 
 mod gl {
@@ -57,13 +57,13 @@ impl Events for E {
     }
 }
 
-struct Scene {
-    vertices: Vec<Vertex>,
+struct Scene<V> {
+    vertices: Vec<V>,
     indices: Vec<u32>,
 }
 
-impl Scene {
-    fn add_image(&mut self, pic: &Pic, position: Vector2<f64>) -> usize {
+impl Scene<PictureVertex> {
+    fn add_image(&mut self, pic: &Pic, position: Vector2<f64>, clip: Clip) -> usize {
         let v = self.vertices.len() as u32;
 
         for i in 0..4 {
@@ -76,11 +76,15 @@ impl Scene {
             };
             let p = position + 2.0 / 95.0 * vec2(v.x * pic.size.x, -v.y * pic.size.y); // FIXME: the exact coefficient isn't known
 
-            self.vertices.push(Vertex {
+            self.vertices.push(PictureVertex {
                 position: [p.x as f32, p.y as f32],
-                color: [0.0, 0.0, 0.0, 0.0],
                 tex_coord: [v.x as f32, v.y as f32],
                 tex_bounds: pic.bounds,
+                clip: match clip {
+                    Clip::Unclipped => 0.5,
+                    Clip::Ground => 1.0,
+                    Clip::Sky => 0.0,
+                },
             });
         }
 
@@ -97,13 +101,17 @@ impl Scene {
 */
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Agress18.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz055.lev");
 
-    let mut texture = Texture::new("E:/d/games/ElastoMania/lgr/default.lgr");
+    let mut texture = Atlas::new("E:/d/games/ElastoMania/lgr/default.lgr");
     let ground_texture = texture.get(&(game_state.level.ground.clone() + ".pcx"));
 
-    let VertexBuffers { vertices, indices } = triangulation::triangulate(&game_state.level);
-    let mut scene = Scene { vertices, indices };
+    let polygon_buffers = triangulation::triangulate(&game_state.level);
+
+    let mut picture_scene = Scene {
+        vertices: Vec::new(),
+        indices: Vec::new(),
+    };
 
     for pic in &game_state.level.pictures {
         if pic.name.is_empty() {
@@ -112,14 +120,14 @@ fn main() {
 
         println!("picture = {}", pic.name);
         let pic2 = texture.get(&(pic.name.clone() + ".pcx"));
-        scene.add_image(pic2, vec2(pic.position.x, pic.position.y));
+        picture_scene.add_image(pic2, vec2(pic.position.x, pic.position.y), pic.clip);
     }
 
     let wheel_pic = texture.get("Q1WHEEL.pcx");
-    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0));
+    let bike = picture_scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped);
     let wheels = [
-        scene.add_image(wheel_pic, vec2(0.0, 0.0)),
-        scene.add_image(wheel_pic, vec2(0.0, 0.0)),
+        picture_scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
+        picture_scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
     ];
 
     let events_loop = glutin::event_loop::EventLoop::new();
@@ -130,6 +138,7 @@ fn main() {
     let windowed_context = glutin::ContextBuilder::new()
         .with_vsync(true)
         // .with_multisampling(0)
+        .with_depth_buffer(8)
         .build_windowed(window_builder, &events_loop)
         .unwrap();
 
@@ -145,6 +154,8 @@ fn main() {
     let time = Instant::now();
     let mut control = Control::default();
     let mut next_frame_time = Instant::now();
+
+    dbg!(&polygon_buffers);
 
     events_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(next_frame_time);
@@ -215,7 +226,7 @@ fn main() {
 
                 unsafe {
                     gl.ClearColor(0.0, 0.0, 0.0, 1.0);
-                    gl.Clear(gl::COLOR_BUFFER_BIT);
+                    gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 }
 
                 let viewport = render::Viewport::from_center_and_scale(
@@ -227,12 +238,25 @@ fn main() {
                 for i in 0..2 {
                     object_to_vertices(
                         &game_state.moto.wheels[i],
-                        &mut scene.vertices[wheels[i]..],
+                        &mut picture_scene.vertices[wheels[i]..],
                     );
                 }
-                object_to_vertices(&game_state.moto.bike, &mut scene.vertices[bike..]);
+                object_to_vertices(&game_state.moto.bike, &mut picture_scene.vertices[bike..]);
 
-                unsafe { renderer.draw_batch(&gl, &scene.vertices, &scene.indices, viewport) };
+                unsafe {
+                    renderer.draw_polygons(
+                        &gl,
+                        &polygon_buffers.vertices,
+                        &polygon_buffers.indices,
+                        viewport,
+                    );
+                    renderer.draw_pictures(
+                        &gl,
+                        &picture_scene.vertices,
+                        &picture_scene.indices,
+                        viewport,
+                    );
+                };
 
                 windowed_context.swap_buffers().unwrap(); // FIXME: handle error
             }
@@ -258,7 +282,7 @@ fn main() {
     //  unsafe { renderer.cleanup(&gl) };
 }
 
-fn object_to_vertices(object: &Object, vertices: &mut [Vertex]) {
+fn object_to_vertices(object: &Object, vertices: &mut [PictureVertex]) {
     let (sin, cos) = object.angular_position.sin_cos();
     let v = 0.4 * 2.0f64.sqrt() * vec2(cos, sin);
     let pos = [
@@ -272,95 +296,3 @@ fn object_to_vertices(object: &Object, vertices: &mut [Vertex]) {
         vertices[i].position = [pos[i].x as f32, pos[i].y as f32];
     }
 }
-
-/*
-
-pub type ColorFormat = gfx::format::Rgba8;
-pub type DepthFormat = gfx::format::DepthStencil;
-
-gfx_defines!{
-    vertex Vertex {
-        pos: [f32; 2] = "in_pos",
-        color: [f32; 3] = "in_color",
-    }
-
-    pipeline pipe {
-        vbuf: gfx::VertexBuffer<Vertex> = (),
-        out: gfx::RenderTarget<ColorFormat> = "pixel",
-        displacement: gfx::Global<[f32; 2]> = "displacement",
-        scale: gfx::Global<[f32; 2]> = "scale",
-    }
-}
-
-fn main() {
-    use gfx::Factory;
-
-    println!("Hello, world!");
-
-    let w = 1024;
-    let h = 768;
-
-    let builder = glutin::WindowBuilder::new()
-        .with_title("Elastomania".to_string())
-        .with_dimensions(w as u32, h as u32)
-        .with_vsync();
-    let (window, mut device, mut factory, main_color, mut main_depth) = gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder);
-    let mut encoder: gfx::Encoder<_, _> = factory.create_command_buffer().into();
-    let pso = factory.create_pipeline_simple(
-        include_bytes!("shader/ground.glslv"),
-        include_bytes!("shader/ground.glslf"),
-        pipe::new()
-    ).unwrap();
-
-    let mut size_in_pixels = (w, h);
-    let scale = 30.0;
-
-    let level = Level::load("E:/d/games/ElastoMania/Lev/0lp25.lev").unwrap();
-
-    let vertices = triangulation::triangulate(&level);
-
-    println!("{:?}", vertices.vertices);
-
-    let vertex_buffer = factory.create_vertex_buffer(&vertices.vertices);
-    let mut data = pipe::Data {
-        vbuf: vertex_buffer,
-        out: main_color,
-        displacement: [0.0, 0.0],
-        scale: [scale/(size_in_pixels.0 as f32), scale/(size_in_pixels.1 as f32)],
-    };
-
-    let index_buffer = factory.create_buffer_const(&vertices.indices, gfx::BufferRole::Index, gfx::Bind::empty()).unwrap();
-
-    let slice = gfx::Slice {
-        start: 0,
-        end: vertices.indices.len() as u32,
-        base_vertex: 0,
-        instances: None,
-        buffer: gfx::IndexBuffer::Index16(index_buffer),
-    };
-
-    'main: loop {
-        // loop over events
-        for event in window.poll_events() {
-            match event {
-                //   glutin::Event::KeyboardInput(_, _, Some(glutin::VirtualKeyCode::Escape)) |
-                glutin::Event::Closed => break 'main,
-                glutin::Event::Resized(w, h) => {
-                    gfx_window_glutin::update_views(&window, &mut data.out, &mut main_depth);
-                    size_in_pixels = (w as i32, h as i32);
-                },
-                _ => {},
-            }
-        }
-
-        data.displacement = [0.0, 0.0];
-        data.scale = [scale/(size_in_pixels.0 as f32), scale/(size_in_pixels.1 as f32)];
-
-        // draw a frame
-        encoder.clear(&data.out, [0.2, 0.3, 0.4, 0.7]);
-        encoder.draw(&slice, &pso, &data);
-        encoder.flush(&mut device);
-        window.swap_buffers().unwrap();
-        device.cleanup();
-    }
-}*/

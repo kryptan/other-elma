@@ -4,11 +4,11 @@ use image::RgbaImage;
 use rect_packer::{Config, Packer, Rect};
 use std::collections::BTreeMap;
 
-pub struct Texture {
+pub struct Atlas {
     pics: BTreeMap<String, Pic>,
-    pub texture: Vec<u8>,
-    pub tex_width: i32,
-    pub tex_height: i32,
+    pub data: Vec<u8>,
+    pub width: i32,
+    pub height: i32,
 }
 
 pub struct Pic {
@@ -17,7 +17,7 @@ pub struct Pic {
     pub size: Vector2<f64>,
 }
 
-impl Texture {
+impl Atlas {
     pub fn new(path: &str) -> Self {
         let lgr = LGR::load(path).unwrap();
 
@@ -123,11 +123,11 @@ impl Texture {
             .save("texture.png")
             .unwrap();
 
-        Texture {
+        Atlas {
             pics,
-            texture,
-            tex_width,
-            tex_height,
+            data: texture,
+            width: tex_width,
+            height: tex_height,
         }
     }
 
