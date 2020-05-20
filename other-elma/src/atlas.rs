@@ -63,10 +63,13 @@ impl Atlas {
             let _palette_len = reader.read_palette(&mut palette).unwrap();
 
             let info = info.remove(name);
-            let (transparency, kind) = info
+            let (transparency, mut kind) = info
                 .as_ref()
                 .map(|info| (info.transparency, info.picture_type))
                 .unwrap_or((Transparency::TopLeft, PictureType::Normal));
+            if name == "QGRASS" {
+                kind = PictureType::Texture;
+            }
 
             let transparent = match transparency {
                 _ if kind == PictureType::Texture => None,
@@ -140,6 +143,7 @@ impl Atlas {
     }
 
     pub fn get(&self, name: &str) -> &Sprite {
+        //  dbg!(name);
         self.sprites.get(name).unwrap()
     }
 }

@@ -60,16 +60,18 @@ impl Events for E {
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz002.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz005.lev");
+    // dbg!(&game_state.level.objects);
+    // dbg!(&game_state.level.ground);
 
     let mut atlas = Atlas::new("E:/d/games/ElastoMania/lgr/default.lgr");
     let mut scene = Scene::new(&mut game_state.level, &atlas);
 
     let wheel_pic = atlas.get("Q1WHEEL");
-    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped);
+    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped, false);
     let wheels = [
-        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
-        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
+        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped, false),
+        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped, false),
     ];
 
     let events_loop = glutin::event_loop::EventLoop::new();
@@ -177,6 +179,7 @@ fn main() {
                     size,
                 );
 
+                scene.animate(time);
                 scene.update(viewport);
 
                 for i in 0..2 {

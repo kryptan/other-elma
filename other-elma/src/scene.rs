@@ -2,9 +2,11 @@ use crate::atlas::{Atlas, Sprite};
 use crate::render::{PictureVertex, PolygonVertex, Viewport};
 use crate::triangulation::triangulate;
 use cgmath::{vec2, Vector2};
-use elma::lev::Level;
+use elma::constants::OBJECT_RADIUS;
+use elma::lev::{Level, ObjectType};
 use elma::Clip;
 use lyon_tessellation::VertexBuffers;
+use std::cmp::{max, min};
 
 /*
 1st pass - render polygons with depth
@@ -19,6 +21,13 @@ pub struct Scene {
     sky_size: Vector2<f64>,
     ground: usize,
     ground_size: Vector2<f64>,
+    objects: Vec<Object>,
+}
+
+struct Object {
+    index: usize,
+    bounds: [f32; 4],
+    num_frames: i32,
 }
 
 fn vec_dir(i: i32) -> Vector2<f64> {
@@ -57,10 +66,11 @@ impl Scene {
             sky_size,
             ground: 0,
             ground_size,
+            objects: Vec::new(),
         };
 
-        scene.sky = scene.add_image(sky_texture, vec2(0.0, 0.0), Clip::Sky);
-        scene.ground = scene.add_image(ground_texture, vec2(0.0, 0.0), Clip::Ground);
+        scene.sky = scene.add_image(sky_texture, vec2(0.0, 0.0), Clip::Sky, false);
+        scene.ground = scene.add_image(ground_texture, vec2(0.0, 0.0), Clip::Ground, false);
 
         let grass = triangulate(&level, true, |position| PictureVertex {
             position,
@@ -80,20 +90,61 @@ impl Scene {
                 continue;
             }
 
-            let pic2 = atlas.get(&pic.name);
-            scene.add_image(pic2, vec2(pic.position.x, pic.position.y), pic.clip);
+            let sprite = atlas.get(&pic.name);
+            scene.add_image(
+                sprite,
+                vec2(pic.position.x, pic.position.y),
+                pic.clip,
+                false,
+            );
+        }
+
+        for object in &level.objects {
+            let name;
+            let name = match object.object_type {
+                ObjectType::Apple { animation, .. } => {
+                    name = format!("qfood{}", min(1, max(2, animation)));
+                    &name
+                }
+                ObjectType::Exit => "QEXIT",
+                ObjectType::Killer => "QKILLER",
+                ObjectType::Player => continue,
+            };
+
+            let sprite = atlas.get(name);
+            let index = scene.add_image(
+                sprite,
+                vec2(object.position.x, object.position.y) - vec2(OBJECT_RADIUS, -OBJECT_RADIUS),
+                Clip::Unclipped,
+                true,
+            );
+            scene.objects.push(Object {
+                index,
+                bounds: sprite.bounds,
+                num_frames: (sprite.size.x / sprite.size.y).round() as i32,
+            });
         }
 
         scene
     }
 
-    pub fn add_image(&mut self, sprite: &Sprite, position: Vector2<f64>, clip: Clip) -> usize {
+    pub fn add_image(
+        &mut self,
+        sprite: &Sprite,
+        position: Vector2<f64>,
+        clip: Clip,
+        animated: bool,
+    ) -> usize {
         let v = self.vertices.len() as u32;
+        let size_x = if animated {
+            sprite.size.y
+        } else {
+            sprite.size.x
+        };
 
         for i in 0..4 {
             let v = vec_dir(i);
-            let p = position
-                + (1.0 / PIXELS_PER_UNIT) * vec2(v.x * sprite.size.x, -v.y * sprite.size.y);
+            let p = position + (1.0 / PIXELS_PER_UNIT) * vec2(v.x * size_x, -v.y * sprite.size.y);
 
             self.vertices.push(PictureVertex {
                 position: [p.x as f32, p.y as f32],
@@ -111,6 +162,23 @@ impl Scene {
             .extend_from_slice(&[v, v + 1, v + 2, v, v + 2, v + 3]);
 
         v as usize
+    }
+
+    pub fn animate(&mut self, time: f64) {
+        let frame = (time * 30.0) as i32; // FIXME: exact framerate is unknown
+        for object in &self.objects {
+            let vertices = &mut self.vertices[object.index..object.index + 4];
+            let frame = (frame % object.num_frames) as f32;
+
+            for vertex in vertices {
+                vertex.tex_bounds = [
+                    object.bounds[0] + (object.bounds[3] - object.bounds[1]) * frame,
+                    object.bounds[1],
+                    object.bounds[0] + (object.bounds[3] - object.bounds[1]) * (frame + 1.0),
+                    object.bounds[3],
+                ];
+            }
+        }
     }
 
     pub fn update(&mut self, viewport: Viewport) {
