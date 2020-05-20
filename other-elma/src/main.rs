@@ -61,7 +61,7 @@ impl Events for E {
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz055.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/A23.lev");
     // dbg!(&game_state.level.objects);
     // dbg!(&game_state.level.ground);
 

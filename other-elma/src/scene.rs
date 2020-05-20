@@ -97,12 +97,8 @@ impl Scene {
                     false,
                 );
             } else if !pic.texture.is_empty() && !pic.mask.is_empty() {
-                //    dbg!(pic.texture);
-                //   dbg!(pic.mask);
                 let texture = atlas.get(&pic.texture);
                 let mask = atlas.get(&pic.mask);
-
-                //  scene.add_image(mask, vec2(pic.position.x, pic.position.y), pic.clip, false);
 
                 let mask_pos = vec2(mask.bounds[0] as f64, mask.bounds[1] as f64);
                 let mask_size = vec2(mask.bounds[2] as f64, mask.bounds[3] as f64) - mask_pos;
@@ -232,7 +228,6 @@ impl Scene {
         //  let sky_width =
         //      sky_size.y as f64 / sky_size.x as f64 * viewport.size.x / viewport.size.y;
         //   let sky_offset = viewport.position.x;
-        // FIXME: vertical inversion
         for i in 0..4 {
             /*    let v = vec_dir(i);
             let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
@@ -252,18 +247,11 @@ impl Scene {
             let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
             sky[i as usize].position = [p.x as f32, p.y as f32];
 
-            let tex_coord_a = PIXELS_PER_UNIT * vec2(viewport.position.x / self.sky_size.x, 0.0);
-
-            let tex_coord = PIXELS_PER_UNIT
-                * vec2(
-                    viewport.size.x / self.sky_size.x,
-                    -viewport.size.y / self.sky_size.y,
-                );
-            let tex_coord = 0.5 * tex_coord_a + vec2(tex_coord.x * v.x, tex_coord.y * v.y);
-            sky[i as usize].tex_coord = [tex_coord.x as f32, tex_coord.y as f32];
+            let p = 0.5 * vec2(viewport.position.x, 0.0)
+                + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
+            sky[i as usize].tex_coord = position_to_tex_coord(p, self.sky_size);
         }
 
-        // FIXME: vertical inversion
         let ground = &mut self.vertices[self.ground..];
         for i in 0..4 {
             let v = vec_dir(i);
