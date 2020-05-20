@@ -1,17 +1,16 @@
 use cgmath::{vec2, Vector2};
 use elma::lgr::{Picture, PictureType, Transparency, LGR};
-use image::RgbaImage;
 use rect_packer::{Config, Packer, Rect};
 use std::collections::BTreeMap;
 
 pub struct Atlas {
-    pics: BTreeMap<String, Pic>,
+    pub sprites: BTreeMap<String, Sprite>,
     pub data: Vec<u8>,
     pub width: i32,
     pub height: i32,
 }
 
-pub struct Pic {
+pub struct Sprite {
     pub info: Option<Picture>,
     pub bounds: [f32; 4],
     pub size: Vector2<f64>,
@@ -21,16 +20,16 @@ impl Atlas {
     pub fn new(path: &str) -> Self {
         let lgr = LGR::load(path).unwrap();
 
-        let tex_width = 2048;
-        let tex_height = 2048;
+        let atlas_width = 2048;
+        let atlas_height = 2048;
         let mut rect_packer = Packer::new(Config {
-            width: tex_width,
-            height: tex_height,
+            width: atlas_width,
+            height: atlas_height,
             border_padding: 1,
             rectangle_padding: 1,
         });
 
-        let mut texture = vec![0; 4 * tex_width as usize * tex_height as usize];
+        let mut data = vec![0; 4 * atlas_width as usize * atlas_height as usize];
 
         let mut info: BTreeMap<String, Picture> = lgr
             .picture_list
@@ -38,10 +37,12 @@ impl Atlas {
             .map(|pic| (pic.name.clone(), pic))
             .collect();
 
-        let mut pics = BTreeMap::new();
+        let mut sprites = BTreeMap::new();
 
         let mut buffer = Vec::new();
         for image in lgr.picture_data.into_iter() {
+            let name = &image.name[..image.name.len() - 4];
+
             let mut reader = pcx::Reader::new(&image.data[..]).unwrap();
             let width = reader.width();
             let height = reader.height();
@@ -54,49 +55,48 @@ impl Atlas {
             for row in 0..height as usize {
                 reader.next_row_paletted(&mut buffer).unwrap();
                 for x in 0..width as usize {
-                    texture[index(row, x, tex_width, rect)] = buffer[x];
+                    data[index(row, x, atlas_width, rect)] = buffer[x];
                 }
             }
 
             let mut palette = [0; 256 * 3];
             let _palette_len = reader.read_palette(&mut palette).unwrap();
 
-            let info = info.remove(image.name.trim_end_matches(".pcx"));
-            println!("name = {}, info = {:?}", image.name, info);
+            let info = info.remove(name);
             let (transparency, kind) = info
                 .as_ref()
                 .map(|info| (info.transparency, info.picture_type))
                 .unwrap_or((Transparency::TopLeft, PictureType::Normal));
+
             let transparent = match transparency {
                 _ if kind == PictureType::Texture => None,
                 Transparency::Solid => None,
                 Transparency::Palette => Some(0),
-                Transparency::TopLeft => Some(texture[index(0, 0, tex_width, rect)]),
+                Transparency::TopLeft => Some(data[index(0, 0, atlas_width, rect)]),
                 Transparency::TopRight => {
-                    Some(texture[index(0, width as usize - 1, tex_width, rect)])
+                    Some(data[index(0, width as usize - 1, atlas_width, rect)])
                 }
                 Transparency::BottomLeft => {
-                    Some(texture[index(height as usize - 1, 0, tex_width, rect)])
+                    Some(data[index(height as usize - 1, 0, atlas_width, rect)])
                 }
                 Transparency::BottomRight => {
-                    Some(texture[index(height as usize - 1, width as usize - 1, tex_width, rect)])
+                    Some(data[index(height as usize - 1, width as usize - 1, atlas_width, rect)])
                 }
             };
 
             for row in 0..height as usize {
                 for x in 0..width as usize {
-                    let i = index(row, x, tex_width, rect);
-                    let index = texture[i];
+                    let i = index(row, x, atlas_width, rect);
+                    let index = data[i];
                     if Some(index) == transparent {
-                        texture[i + 0] = 0;
-                        texture[i + 1] = 0;
-                        texture[i + 2] = 0;
-                        texture[i + 3] = 0;
+                        for c in 0..4 {
+                            data[i + c] = 0;
+                        }
                     } else {
                         for c in 0..3 {
-                            texture[i + c] = palette[index as usize * 3 + c];
+                            data[i + c] = palette[index as usize * 3 + c];
                         }
-                        texture[i + 3] = 255;
+                        data[i + 3] = 255;
                     }
                 }
             }
@@ -111,39 +111,39 @@ impl Atlas {
                 right -= 0.5;
                 bottom -= 0.5;
             }
-            pics.insert(
-                image.name,
-                Pic {
+            sprites.insert(
+                name.to_owned(),
+                Sprite {
                     info,
                     bounds: [
-                        left / tex_width as f32,
-                        top / tex_height as f32,
-                        right / tex_width as f32,
-                        bottom / tex_height as f32,
+                        left / atlas_width as f32,
+                        top / atlas_height as f32,
+                        right / atlas_width as f32,
+                        bottom / atlas_height as f32,
                     ],
                     size: vec2(width as f64, height as f64),
                 },
             );
         }
 
-        RgbaImage::from_raw(tex_width as _, tex_height as _, texture.clone())
-            .unwrap()
-            .save("texture.png")
-            .unwrap();
+        /*    RgbaImage::from_raw(atlas_width as _, atlas_height as _, texture.clone())
+        .unwrap()
+        .save("texture.png")
+        .unwrap();*/
 
         Atlas {
-            pics,
-            data: texture,
-            width: tex_width,
-            height: tex_height,
+            sprites,
+            data,
+            width: atlas_width,
+            height: atlas_height,
         }
     }
 
-    pub fn get(&self, name: &str) -> &Pic {
-        self.pics.get(name).unwrap()
+    pub fn get(&self, name: &str) -> &Sprite {
+        self.sprites.get(name).unwrap()
     }
 }
 
-fn index(row: usize, column: usize, tex_width: i32, rect: Rect) -> usize {
-    ((rect.y as usize + row) * tex_width as usize + rect.x as usize + column) * 4
+fn index(row: usize, column: usize, atlas_width: i32, rect: Rect) -> usize {
+    ((rect.y as usize + row) * atlas_width as usize + rect.x as usize + column) * 4
 }

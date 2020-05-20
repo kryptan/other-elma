@@ -1,5 +1,6 @@
-use crate::atlas::{Atlas, Pic};
-use crate::render::PictureVertex;
+use crate::atlas::{Atlas, Sprite};
+use crate::render::{PictureVertex, PolygonVertex};
+use crate::scene::Scene;
 use cgmath::{vec2, Vector2};
 use elma::lev::Level;
 use elma::rec::EventType;
@@ -8,10 +9,12 @@ use elma_physics::{Control, Events, Moto, Object, Segments};
 use gl::types::*;
 use glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use glutin::event_loop::ControlFlow;
+use lyon_tessellation::VertexBuffers;
 use std::time::{Duration, Instant};
 
 mod atlas;
 mod render;
+mod scene;
 mod triangulation;
 
 mod gl {
@@ -57,88 +60,17 @@ impl Events for E {
     }
 }
 
-struct Scene<V> {
-    vertices: Vec<V>,
-    indices: Vec<u32>,
-}
-
-fn vec_dir(i: i32) -> Vector2<f64> {
-    match i {
-        0 => vec2(0.0, 0.0),
-        1 => vec2(1.0, 0.0),
-        2 => vec2(1.0, 1.0),
-        3 => vec2(0.0, 1.0),
-        _ => unreachable!(),
-    }
-}
-
-const PIXELS_PER_UNIT: f64 = 95.0 / 2.0; // FIXME: the exact coefficient isn't known
-
-impl Scene<PictureVertex> {
-    fn add_image(&mut self, pic: &Pic, position: Vector2<f64>, clip: Clip) -> usize {
-        let v = self.vertices.len() as u32;
-
-        for i in 0..4 {
-            let v = vec_dir(i);
-            let p = position + (1.0 / PIXELS_PER_UNIT) * vec2(v.x * pic.size.x, -v.y * pic.size.y);
-
-            self.vertices.push(PictureVertex {
-                position: [p.x as f32, p.y as f32],
-                tex_coord: [v.x as f32, v.y as f32],
-                tex_bounds: pic.bounds,
-                clip: match clip {
-                    Clip::Unclipped => 0.5,
-                    Clip::Ground => 0.0,
-                    Clip::Sky => 1.0,
-                },
-            });
-        }
-
-        self.indices
-            .extend_from_slice(&[v, v + 1, v + 2, v, v + 2, v + 3]);
-
-        v as usize
-    }
-}
-
-/*
-1st pass - render polygons with depth
-2ns pass - render sorted pictures with depth test but no depth writing
-*/
-
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp26.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz001.lev");
 
-    let mut texture = Atlas::new("E:/d/games/ElastoMania/lgr/default.lgr");
-    let sky_texture = texture.get(&(game_state.level.sky.clone() + ".pcx"));
-    let ground_texture = texture.get(&(game_state.level.ground.clone() + ".pcx"));
-    let sky_size = sky_texture.size;
-    let ground_size = ground_texture.size;
+    let mut atlas = Atlas::new("E:/d/games/ElastoMania/lgr/default.lgr");
+    let mut scene = Scene::new(&mut game_state.level, &atlas);
 
-    let polygon_buffers = triangulation::triangulate(&game_state.level);
-
-    let mut picture_scene = Scene {
-        vertices: Vec::new(),
-        indices: Vec::new(),
-    };
-
-    let sky = picture_scene.add_image(sky_texture, vec2(0.0, 0.0), Clip::Sky);
-    let ground = picture_scene.add_image(ground_texture, vec2(0.0, 0.0), Clip::Ground);
-
-    for pic in &game_state.level.pictures {
-        if pic.name.is_empty() {
-            continue;
-        }
-
-        let pic2 = texture.get(&(pic.name.clone() + ".pcx"));
-        picture_scene.add_image(pic2, vec2(pic.position.x, pic.position.y), pic.clip);
-    }
-
-    let wheel_pic = texture.get("Q1WHEEL.pcx");
-    let bike = picture_scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped);
+    let wheel_pic = atlas.get("Q1WHEEL");
+    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped);
     let wheels = [
-        picture_scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
-        picture_scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
+        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
+        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped),
     ];
 
     let events_loop = glutin::event_loop::EventLoop::new();
@@ -161,7 +93,7 @@ fn main() {
     let gl = gl::Gl::load_with(|name| windowed_context.get_proc_address(name) as *const _);
     //  let _gles = gles::Gles2::load_with(|name| self.window.context().get_proc_address(name) as *const _);
 
-    let mut renderer = unsafe { render::Renderer::new(&gl, &mut texture) };
+    let mut renderer = unsafe { render::Renderer::new(&gl, &mut atlas) };
     let time = Instant::now();
     let mut control = Control::default();
     let mut next_frame_time = Instant::now();
@@ -246,81 +178,24 @@ fn main() {
                     size,
                 );
 
+                scene.update(viewport);
+
                 for i in 0..2 {
                     object_to_vertices(
                         &game_state.moto.wheels[i],
-                        &mut picture_scene.vertices[wheels[i]..],
+                        &mut scene.vertices[wheels[i]..],
                     );
                 }
-                object_to_vertices(&game_state.moto.bike, &mut picture_scene.vertices[bike..]);
-
-                let sky = &mut picture_scene.vertices[sky..];
-                //  let sky_width =
-                //      sky_size.y as f64 / sky_size.x as f64 * viewport.size.x / viewport.size.y;
-                //   let sky_offset = viewport.position.x;
-                // FIXME: vertical inversion
-                for i in 0..4 {
-                    /*    let v = vec_dir(i);
-                    let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
-                    sky[i as usize].position = [p.x as f32, p.y as f32];
-                    if v.x > 0.5 {
-                        sky[i as usize].tex_coord[0] = sky_width as f32;
-                    } else {
-                        sky[i as usize].tex_coord[0] = 0.0;
-                    }
-
-                    let tex_coord_a = PIXELS_PER_UNIT * viewport.position.x / sky_size.x;
-                    //    let tex_coord = PIXELS_PER_UNIT * viewport.size.x / sky_size.x;
-                    let tex_coord = 0.5 * tex_coord_a; // + tex_coord * v.x;
-                    sky[i as usize].tex_coord[0] += tex_coord as f32;*/
-
-                    let v = vec_dir(i);
-                    let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
-                    sky[i as usize].position = [p.x as f32, p.y as f32];
-
-                    let tex_coord_a = PIXELS_PER_UNIT * vec2(viewport.position.x / sky_size.x, 0.0);
-
-                    let tex_coord = PIXELS_PER_UNIT
-                        * vec2(viewport.size.x / sky_size.x, viewport.size.y / sky_size.y);
-                    let tex_coord = 0.5 * tex_coord_a + vec2(tex_coord.x * v.x, tex_coord.y * v.y);
-                    sky[i as usize].tex_coord = [tex_coord.x as f32, tex_coord.y as f32];
-                }
-
-                // FIXME: vertical inversion
-                let ground = &mut picture_scene.vertices[ground..];
-                for i in 0..4 {
-                    let v = vec_dir(i);
-                    let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
-                    ground[i as usize].position = [p.x as f32, p.y as f32];
-
-                    let tex_coord_a = PIXELS_PER_UNIT
-                        * vec2(
-                            viewport.position.x / ground_size.x,
-                            viewport.position.y / ground_size.y,
-                        );
-
-                    let tex_coord = PIXELS_PER_UNIT
-                        * vec2(
-                            viewport.size.x / ground_size.x,
-                            viewport.size.y / ground_size.y,
-                        );
-                    let tex_coord = tex_coord_a + vec2(tex_coord.x * v.x, tex_coord.y * v.y);
-                    ground[i as usize].tex_coord = [tex_coord.x as f32, tex_coord.y as f32];
-                }
+                object_to_vertices(&game_state.moto.bike, &mut scene.vertices[bike..]);
 
                 unsafe {
                     renderer.draw_polygons(
                         &gl,
-                        &polygon_buffers.vertices,
-                        &polygon_buffers.indices,
+                        &scene.polygons.vertices,
+                        &scene.polygons.indices,
                         viewport,
                     );
-                    renderer.draw_pictures(
-                        &gl,
-                        &picture_scene.vertices,
-                        &picture_scene.indices,
-                        viewport,
-                    );
+                    renderer.draw_pictures(&gl, &scene.vertices, &scene.indices, viewport);
                 };
 
                 windowed_context.swap_buffers().unwrap(); // FIXME: handle error
