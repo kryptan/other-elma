@@ -52,6 +52,7 @@ pub struct PictureVertex {
     pub position: [f32; 2],
     pub tex_coord: [f32; 2],
     pub tex_bounds: [f32; 4],
+    pub mask: [f32; 2],
     pub clip: f32,
 }
 
@@ -59,7 +60,8 @@ const PICTURE_ATTRIBUTES: &[(&str, GLint, usize)] = &[
     ("in_position\0", 2, 0 * 4),
     ("in_tex_coord\0", 2, 2 * 4),
     ("in_tex_bounds\0", 4, 4 * 4),
-    ("in_clip\0", 1, 8 * 4),
+    ("in_mask\0", 2, 8 * 4),
+    ("in_clip\0", 1, 10 * 4),
 ];
 
 #[derive(Copy, Clone, Debug)]

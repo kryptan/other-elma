@@ -11,7 +11,6 @@ pub struct Atlas {
 }
 
 pub struct Sprite {
-    pub info: Option<Picture>,
     pub bounds: [f32; 4],
     pub size: Vector2<f64>,
 }
@@ -117,7 +116,6 @@ impl Atlas {
             sprites.insert(
                 name.to_owned(),
                 Sprite {
-                    info,
                     bounds: [
                         left / atlas_width as f32,
                         top / atlas_height as f32,

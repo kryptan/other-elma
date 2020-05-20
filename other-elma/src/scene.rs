@@ -77,6 +77,7 @@ impl Scene {
             position,
             tex_coord: position,
             tex_bounds: grass_texture.bounds,
+            mask: [-1.0, -1.0],
             clip: 0.0,
         });
         let num_vertices = scene.vertices.len();
@@ -87,17 +88,49 @@ impl Scene {
 
         level.pictures.sort_by_key(|picture| picture.distance);
         for pic in level.pictures.iter().rev() {
-            if pic.name.is_empty() {
-                continue;
-            }
+            if !pic.name.is_empty() {
+                let sprite = atlas.get(&pic.name);
+                scene.add_image(
+                    sprite,
+                    vec2(pic.position.x, pic.position.y),
+                    pic.clip,
+                    false,
+                );
+            } else if !pic.texture.is_empty() && !pic.mask.is_empty() {
+                //    dbg!(pic.texture);
+                //   dbg!(pic.mask);
+                let texture = atlas.get(&pic.texture);
+                let mask = atlas.get(&pic.mask);
 
-            let sprite = atlas.get(&pic.name);
-            scene.add_image(
-                sprite,
-                vec2(pic.position.x, pic.position.y),
-                pic.clip,
-                false,
-            );
+                //  scene.add_image(mask, vec2(pic.position.x, pic.position.y), pic.clip, false);
+
+                let mask_pos = vec2(mask.bounds[0] as f64, mask.bounds[1] as f64);
+                let mask_size = vec2(mask.bounds[2] as f64, mask.bounds[3] as f64) - mask_pos;
+
+                let v = scene.vertices.len() as u32;
+                for i in 0..4 {
+                    let v = vec_dir(i);
+                    let p = vec2(pic.position.x, pic.position.y)
+                        + (1.0 / PIXELS_PER_UNIT) * vec2(v.x * mask.size.x, -v.y * mask.size.y);
+                    let mask = mask_pos + vec2(v.x * mask_size.x, v.y * mask_size.y);
+
+                    scene.vertices.push(PictureVertex {
+                        position: [p.x as f32, p.y as f32],
+                        tex_coord: [v.x as f32, v.y as f32],
+                        tex_bounds: texture.bounds,
+                        mask: [mask.x as f32, mask.y as f32],
+                        clip: match pic.clip {
+                            Clip::Unclipped => 0.5,
+                            Clip::Ground => 0.0,
+                            Clip::Sky => 1.0,
+                        },
+                    });
+                }
+
+                scene
+                    .indices
+                    .extend_from_slice(&[v, v + 1, v + 2, v, v + 2, v + 3]);
+            }
         }
 
         for object in &level.objects {
@@ -152,6 +185,7 @@ impl Scene {
                 position: [p.x as f32, p.y as f32],
                 tex_coord: [v.x as f32, v.y as f32],
                 tex_bounds: sprite.bounds,
+                mask: [-1.0, -1.0],
                 clip: match clip {
                     Clip::Unclipped => 0.5,
                     Clip::Ground => 0.0,
