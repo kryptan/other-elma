@@ -116,7 +116,7 @@ impl Scene {
 
                     scene.vertices.push(PictureVertex {
                         position: [p.x as f32, p.y as f32],
-                        tex_coord: [v.x as f32, v.y as f32],
+                        tex_coord: position_to_tex_coord(p, texture.size),
                         tex_bounds: texture.bounds,
                         mask: [mask.x as f32, mask.y as f32],
                         clip: match pic.clip {
@@ -257,7 +257,7 @@ impl Scene {
             let tex_coord = PIXELS_PER_UNIT
                 * vec2(
                     viewport.size.x / self.sky_size.x,
-                    viewport.size.y / self.sky_size.y,
+                    -viewport.size.y / self.sky_size.y,
                 );
             let tex_coord = 0.5 * tex_coord_a + vec2(tex_coord.x * v.x, tex_coord.y * v.y);
             sky[i as usize].tex_coord = [tex_coord.x as f32, tex_coord.y as f32];
@@ -269,20 +269,12 @@ impl Scene {
             let v = vec_dir(i);
             let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
             ground[i as usize].position = [p.x as f32, p.y as f32];
-
-            let tex_coord_a = PIXELS_PER_UNIT
-                * vec2(
-                    viewport.position.x / self.ground_size.x,
-                    viewport.position.y / self.ground_size.y,
-                );
-
-            let tex_coord = PIXELS_PER_UNIT
-                * vec2(
-                    viewport.size.x / self.ground_size.x,
-                    viewport.size.y / self.ground_size.y,
-                );
-            let tex_coord = tex_coord_a + vec2(tex_coord.x * v.x, tex_coord.y * v.y);
-            ground[i as usize].tex_coord = [tex_coord.x as f32, tex_coord.y as f32];
+            ground[i as usize].tex_coord = position_to_tex_coord(p, self.ground_size);
         }
     }
+}
+
+fn position_to_tex_coord(position: Vector2<f64>, size: Vector2<f64>) -> [f32; 2] {
+    let tex_coord = PIXELS_PER_UNIT * vec2(position.x / size.x, -position.y / size.y);
+    [tex_coord.x as f32, tex_coord.y as f32]
 }
