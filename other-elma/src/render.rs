@@ -131,10 +131,6 @@ impl Pass {
         indices: &Vec<u32>,
         viewport: Viewport,
     ) {
-        gl.UseProgram(self.program);
-        gl.BindBuffer(gl::ARRAY_BUFFER, self.vertex_buffer);
-        gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, self.index_buffer);
-
         if vertices.len() > self.vertex_buffer_capacity {
             self.vertex_buffer_capacity = vertices.capacity();
             gl.BufferData(
@@ -232,12 +228,13 @@ impl Renderer {
         atlas.data = Vec::new();
 
         // Specify the layout of the vertex data
-        for &(pass, attributes, stride) in &[
+        /*   for &(pass, attributes, stride) in &[
             (&polygons, POLYGON_ATTRIBUTES, size_of::<PolygonVertex>()),
             (&pictures, PICTURE_ATTRIBUTES, size_of::<PictureVertex>()),
         ] {
             gl.UseProgram(pass.program);
             gl.BindBuffer(gl::ARRAY_BUFFER, pass.vertex_buffer);
+            gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, pass.index_buffer);
 
             for &(name, size, offset) in attributes {
                 let attribute = gl.GetAttribLocation(pass.program, name.as_ptr() as *const GLchar);
@@ -251,9 +248,10 @@ impl Renderer {
                     offset as *const _,
                 );
             }
-        }
+        }*/
 
         gl.Enable(gl::BLEND);
+        gl.Enable(gl::DEPTH_TEST);
         gl.BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
         //    gl.PolygonMode(gl::FRONT_AND_BACK, gl::LINE);
         //   gl.LineWidth(7.0);
@@ -268,6 +266,31 @@ impl Renderer {
         }
     }
 
+    unsafe fn enable(
+        &self,
+        gl: &Gl,
+        pass: &Pass,
+        attributes: &[(&str, GLint, usize)],
+        stride: usize,
+    ) {
+        gl.UseProgram(pass.program);
+        gl.BindBuffer(gl::ARRAY_BUFFER, pass.vertex_buffer);
+        gl.BindBuffer(gl::ELEMENT_ARRAY_BUFFER, pass.index_buffer);
+
+        for &(name, size, offset) in attributes {
+            let attribute = gl.GetAttribLocation(pass.program, name.as_ptr() as *const GLchar);
+            gl.EnableVertexAttribArray(attribute as GLuint);
+            gl.VertexAttribPointer(
+                attribute as GLuint,
+                size,
+                gl::FLOAT,
+                gl::FALSE as GLboolean,
+                stride as GLsizei,
+                offset as *const _,
+            );
+        }
+    }
+
     pub unsafe fn draw_polygons(
         &mut self,
         gl: &Gl,
@@ -279,8 +302,14 @@ impl Renderer {
             return;
         }
 
-        //  gl.DepthFunc(gl::ALWAYS);
-        //     gl.DepthMask(true as _);
+        gl.DepthFunc(gl::ALWAYS);
+        gl.DepthMask(true as _);
+        self.enable(
+            gl,
+            &self.polygons,
+            POLYGON_ATTRIBUTES,
+            size_of::<PolygonVertex>(),
+        );
         self.polygons.draw(gl, vertices, indices, viewport);
     }
 
@@ -297,6 +326,12 @@ impl Renderer {
 
         gl.DepthFunc(gl::NOTEQUAL);
         gl.DepthMask(false as _);
+        self.enable(
+            gl,
+            &self.pictures,
+            PICTURE_ATTRIBUTES,
+            size_of::<PictureVertex>(),
+        );
         self.pictures.draw(gl, vertices, indices, viewport);
     }
 

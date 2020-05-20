@@ -82,8 +82,8 @@ impl Scene<PictureVertex> {
                 tex_bounds: pic.bounds,
                 clip: match clip {
                     Clip::Unclipped => 0.5,
-                    Clip::Ground => 1.0,
-                    Clip::Sky => 0.0,
+                    Clip::Ground => 0.0,
+                    Clip::Sky => 1.0,
                 },
             });
         }
@@ -155,8 +155,6 @@ fn main() {
     let mut control = Control::default();
     let mut next_frame_time = Instant::now();
 
-    dbg!(&polygon_buffers);
-
     events_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::WaitUntil(next_frame_time);
         let now = Instant::now();
@@ -225,7 +223,9 @@ fn main() {
                 // let height = size.height as f64 / scale_factor;
 
                 unsafe {
+                    gl.DepthMask(true as _);
                     gl.ClearColor(0.0, 0.0, 0.0, 1.0);
+                    gl.ClearDepth(1.0);
                     gl.Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
                 }
 
