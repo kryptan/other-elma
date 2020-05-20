@@ -74,7 +74,7 @@ impl Scene {
                 3 => vec2(0.0, 1.0),
                 _ => unreachable!(),
             };
-            let p = position + 0.021 * vec2(v.x * pic.size.x, -v.y * pic.size.y); // FIXME: the exact coefficient isn't known
+            let p = position + 2.0 / 95.0 * vec2(v.x * pic.size.x, -v.y * pic.size.y); // FIXME: the exact coefficient isn't known
 
             self.vertices.push(Vertex {
                 position: [p.x as f32, p.y as f32],
@@ -91,8 +91,13 @@ impl Scene {
     }
 }
 
+/*
+1st pass - render polygons with depth
+2ns pass - render sorted pictures with depth test but no depth writing
+*/
+
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz055.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Agress18.lev");
 
     let mut texture = Texture::new("E:/d/games/ElastoMania/lgr/default.lgr");
     let ground_texture = texture.get(&(game_state.level.ground.clone() + ".pcx"));
@@ -241,6 +246,8 @@ fn main() {
 
         if close {
             *control_flow = ControlFlow::Exit;
+
+            // FIXME: move?
             unsafe {
                 renderer.cleanup(&gl);
             }
