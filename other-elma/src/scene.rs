@@ -39,8 +39,12 @@ impl Scene {
         let ground_texture = atlas.get(&level.ground);
         let sky_size = sky_texture.size;
         let ground_size = ground_texture.size;
+        let grass_texture = atlas.get("QGRASS");
 
-        let polygons = triangulate(&level);
+        let polygons = triangulate(&level, false, |position| PolygonVertex {
+            position,
+            clip: 0.0,
+        });
 
         let vertices = Vec::new();
         let indices = Vec::new();
@@ -57,6 +61,18 @@ impl Scene {
 
         scene.sky = scene.add_image(sky_texture, vec2(0.0, 0.0), Clip::Sky);
         scene.ground = scene.add_image(ground_texture, vec2(0.0, 0.0), Clip::Ground);
+
+        let grass = triangulate(&level, true, |position| PictureVertex {
+            position,
+            tex_coord: position,
+            tex_bounds: grass_texture.bounds,
+            clip: 0.0,
+        });
+        let num_vertices = scene.vertices.len();
+        scene.vertices.extend_from_slice(&grass.vertices);
+        scene
+            .indices
+            .extend(grass.indices.into_iter().map(|i| i + num_vertices as u32));
 
         level.pictures.sort_by_key(|picture| picture.distance);
         for pic in level.pictures.iter().rev() {

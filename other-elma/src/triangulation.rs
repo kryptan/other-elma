@@ -1,24 +1,17 @@
-use crate::render::PolygonVertex;
 use elma::lev::Level;
 use lyon_tessellation::geom::math::{point, Point};
 use lyon_tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon_tessellation::path::Path;
-use lyon_tessellation::{FillAttributes, FillOptions, FillTessellator, FillVertexConstructor};
+use lyon_tessellation::{FillAttributes, FillOptions, FillTessellator};
 
-impl FillVertexConstructor<PolygonVertex> for () {
-    fn new_vertex(&mut self, input: Point, _attributes: FillAttributes) -> PolygonVertex {
-        PolygonVertex {
-            position: [input.x, input.y],
-            clip: 0.0,
-        }
-    }
-}
-
-pub fn triangulate(level: &Level) -> VertexBuffers<PolygonVertex, u32> {
-    // Create a simple path.
+pub fn triangulate<V>(
+    level: &Level,
+    grass: bool,
+    f: impl Fn([f32; 2]) -> V,
+) -> VertexBuffers<V, u32> {
     let mut path_builder = Path::builder();
     for polygon in &level.polygons {
-        if !polygon.grass {
+        if polygon.grass == grass {
             path_builder.move_to(point(
                 polygon.vertices[0].x as f32,
                 polygon.vertices[0].y as f32,
@@ -33,16 +26,16 @@ pub fn triangulate(level: &Level) -> VertexBuffers<PolygonVertex, u32> {
     let path = path_builder.build();
 
     // Create the destination vertex and index buffers.
-    let mut buffers: VertexBuffers<PolygonVertex, u32> = VertexBuffers::new();
+    let mut buffers: VertexBuffers<V, u32> = VertexBuffers::new();
 
     // Create the destination vertex and index buffers.
-    let mut vertex_builder = BuffersBuilder::new(&mut buffers, ()); //simple_builder(&mut buffers);
+    let mut vertex_builder =
+        BuffersBuilder::new(&mut buffers, |input: Point, _attributes: FillAttributes| {
+            f([input.x, input.y])
+        });
 
-    // Create the tessellator.
-    let mut tessellator = FillTessellator::new();
-
-    // Compute the tessellation.
-    let result = tessellator.tessellate_path(&path, &FillOptions::default(), &mut vertex_builder);
+    let result =
+        FillTessellator::new().tessellate_path(&path, &FillOptions::default(), &mut vertex_builder);
     assert!(result.is_ok());
 
     buffers
