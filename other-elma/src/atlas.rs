@@ -42,7 +42,6 @@ impl Atlas {
 
         let mut buffer = Vec::new();
         for image in lgr.picture_data.into_iter() {
-            dbg!(&image.name);
             let mut reader = pcx::Reader::new(&image.data[..]).unwrap();
             let width = reader.width();
             let height = reader.height();
@@ -62,7 +61,8 @@ impl Atlas {
             let mut palette = [0; 256 * 3];
             let _palette_len = reader.read_palette(&mut palette).unwrap();
 
-            let info = info.remove(&image.name);
+            let info = info.remove(image.name.trim_end_matches(".pcx"));
+            println!("name = {}, info = {:?}", image.name, info);
             let (transparency, kind) = info
                 .as_ref()
                 .map(|info| (info.transparency, info.picture_type))
@@ -83,8 +83,6 @@ impl Atlas {
                 }
             };
 
-            dbg!(transparent);
-
             for row in 0..height as usize {
                 for x in 0..width as usize {
                     let i = index(row, x, tex_width, rect);
@@ -103,15 +101,25 @@ impl Atlas {
                 }
             }
 
+            let mut left = rect.x as f32;
+            let mut top = rect.y as f32;
+            let mut right = left + rect.width as f32;
+            let mut bottom = top + rect.height as f32;
+            if kind == PictureType::Texture {
+                left += 0.5;
+                top += 0.5;
+                right -= 0.5;
+                bottom -= 0.5;
+            }
             pics.insert(
                 image.name,
                 Pic {
                     info,
                     bounds: [
-                        rect.x as f32 / tex_width as f32,
-                        rect.y as f32 / tex_height as f32,
-                        (rect.x + rect.width) as f32 / tex_width as f32,
-                        (rect.y + rect.height) as f32 / tex_height as f32,
+                        left / tex_width as f32,
+                        top / tex_height as f32,
+                        right / tex_width as f32,
+                        bottom / tex_height as f32,
                     ],
                     size: vec2(width as f64, height as f64),
                 },
@@ -132,7 +140,6 @@ impl Atlas {
     }
 
     pub fn get(&self, name: &str) -> &Pic {
-        //   dbg!(name);
         self.pics.get(name).unwrap()
     }
 }

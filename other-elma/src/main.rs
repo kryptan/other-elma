@@ -62,19 +62,25 @@ struct Scene<V> {
     indices: Vec<u32>,
 }
 
+fn vec_dir(i: i32) -> Vector2<f64> {
+    match i {
+        0 => vec2(0.0, 0.0),
+        1 => vec2(1.0, 0.0),
+        2 => vec2(1.0, 1.0),
+        3 => vec2(0.0, 1.0),
+        _ => unreachable!(),
+    }
+}
+
+const PIXELS_PER_UNIT: f64 = 95.0 / 2.0; // FIXME: the exact coefficient isn't known
+
 impl Scene<PictureVertex> {
     fn add_image(&mut self, pic: &Pic, position: Vector2<f64>, clip: Clip) -> usize {
         let v = self.vertices.len() as u32;
 
         for i in 0..4 {
-            let v = match i {
-                0 => vec2(0.0, 0.0),
-                1 => vec2(1.0, 0.0),
-                2 => vec2(1.0, 1.0),
-                3 => vec2(0.0, 1.0),
-                _ => unreachable!(),
-            };
-            let p = position + 2.0 / 95.0 * vec2(v.x * pic.size.x, -v.y * pic.size.y); // FIXME: the exact coefficient isn't known
+            let v = vec_dir(i);
+            let p = position + (1.0 / PIXELS_PER_UNIT) * vec2(v.x * pic.size.x, -v.y * pic.size.y);
 
             self.vertices.push(PictureVertex {
                 position: [p.x as f32, p.y as f32],
@@ -101,10 +107,13 @@ impl Scene<PictureVertex> {
 */
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/Olliz055.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/0lp26.lev");
 
     let mut texture = Atlas::new("E:/d/games/ElastoMania/lgr/default.lgr");
+    let sky_texture = texture.get(&(game_state.level.sky.clone() + ".pcx"));
     let ground_texture = texture.get(&(game_state.level.ground.clone() + ".pcx"));
+    let sky_size = sky_texture.size;
+    let ground_size = ground_texture.size;
 
     let polygon_buffers = triangulation::triangulate(&game_state.level);
 
@@ -113,12 +122,14 @@ fn main() {
         indices: Vec::new(),
     };
 
+    let sky = picture_scene.add_image(sky_texture, vec2(0.0, 0.0), Clip::Sky);
+    let ground = picture_scene.add_image(ground_texture, vec2(0.0, 0.0), Clip::Ground);
+
     for pic in &game_state.level.pictures {
         if pic.name.is_empty() {
             continue;
         }
 
-        println!("picture = {}", pic.name);
         let pic2 = texture.get(&(pic.name.clone() + ".pcx"));
         picture_scene.add_image(pic2, vec2(pic.position.x, pic.position.y), pic.clip);
     }
@@ -242,6 +253,60 @@ fn main() {
                     );
                 }
                 object_to_vertices(&game_state.moto.bike, &mut picture_scene.vertices[bike..]);
+
+                let sky = &mut picture_scene.vertices[sky..];
+                //  let sky_width =
+                //      sky_size.y as f64 / sky_size.x as f64 * viewport.size.x / viewport.size.y;
+                //   let sky_offset = viewport.position.x;
+                // FIXME: vertical inversion
+                for i in 0..4 {
+                    /*    let v = vec_dir(i);
+                    let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
+                    sky[i as usize].position = [p.x as f32, p.y as f32];
+                    if v.x > 0.5 {
+                        sky[i as usize].tex_coord[0] = sky_width as f32;
+                    } else {
+                        sky[i as usize].tex_coord[0] = 0.0;
+                    }
+
+                    let tex_coord_a = PIXELS_PER_UNIT * viewport.position.x / sky_size.x;
+                    //    let tex_coord = PIXELS_PER_UNIT * viewport.size.x / sky_size.x;
+                    let tex_coord = 0.5 * tex_coord_a; // + tex_coord * v.x;
+                    sky[i as usize].tex_coord[0] += tex_coord as f32;*/
+
+                    let v = vec_dir(i);
+                    let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
+                    sky[i as usize].position = [p.x as f32, p.y as f32];
+
+                    let tex_coord_a = PIXELS_PER_UNIT * vec2(viewport.position.x / sky_size.x, 0.0);
+
+                    let tex_coord = PIXELS_PER_UNIT
+                        * vec2(viewport.size.x / sky_size.x, viewport.size.y / sky_size.y);
+                    let tex_coord = 0.5 * tex_coord_a + vec2(tex_coord.x * v.x, tex_coord.y * v.y);
+                    sky[i as usize].tex_coord = [tex_coord.x as f32, tex_coord.y as f32];
+                }
+
+                // FIXME: vertical inversion
+                let ground = &mut picture_scene.vertices[ground..];
+                for i in 0..4 {
+                    let v = vec_dir(i);
+                    let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
+                    ground[i as usize].position = [p.x as f32, p.y as f32];
+
+                    let tex_coord_a = PIXELS_PER_UNIT
+                        * vec2(
+                            viewport.position.x / ground_size.x,
+                            viewport.position.y / ground_size.y,
+                        );
+
+                    let tex_coord = PIXELS_PER_UNIT
+                        * vec2(
+                            viewport.size.x / ground_size.x,
+                            viewport.size.y / ground_size.y,
+                        );
+                    let tex_coord = tex_coord_a + vec2(tex_coord.x * v.x, tex_coord.y * v.y);
+                    ground[i as usize].tex_coord = [tex_coord.x as f32, tex_coord.y as f32];
+                }
 
                 unsafe {
                     renderer.draw_polygons(
