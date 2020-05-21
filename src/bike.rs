@@ -2,7 +2,7 @@
 use crate::physics::WHEEL_RADIUS;
 use crate::scene::Scene;
 use crate::{physics, scene};
-use cgmath::vec2;
+use cgmath::{vec2, Matrix2, Rad, Vector2};
 use std::f64::consts::PI;
 
 pub fn render_moto(scene: &mut Scene, scene_moto: &scene::Moto, physics_moto: &physics::Moto) {
@@ -10,8 +10,7 @@ pub fn render_moto(scene: &mut Scene, scene_moto: &scene::Moto, physics_moto: &p
         scene.set_image_pos(
             scene_moto.wheels[i],
             physics_moto.wheels[i].position,
-            WHEEL_RADIUS,
-            physics_moto.wheels[i].angular_position,
+            Matrix2::from_angle(Rad(physics_moto.wheels[i].angular_position)) * WHEEL_RADIUS,
         );
     }
 
@@ -23,18 +22,48 @@ pub fn render_moto(scene: &mut Scene, scene_moto: &scene::Moto, physics_moto: &p
                     lgr.bike.draw(canv);
 
                     38.4/48*x == 0.4
-                    x = 0.4*48/38.4
+                    x = 0.5
                     0.215815*380/48 == y*x
                     y = 0.215815*380.0/48*0.4*48.0/38.4
+
+
+
+                canv.save(); // bike
+                    canv.translate(-43/48, -12/48);
+                    canv.rotate(-Math.PI*0.197);
+                    canv.scale(0.215815*380/48, 0.215815*301/48);
+                    lgr.bike.draw(canv);
+                canv.restore();
     */
+    let mut moto_matrix = Matrix2::from_angle(Rad(physics_moto.bike.angular_position));
+    if physics_moto.direction {
+        moto_matrix = moto_matrix * scale(-1.0, 1.0);
+    }
 
     scene.set_image_pos(
         scene_moto.bike,
-        physics_moto.bike.position,
-        0.215815 * 380.0 * 0.4 / 38.4,
-        physics_moto.bike.angular_position + PI * 0.197,
+        physics_moto.bike.position
+            + moto_matrix
+                * Matrix2::from_angle(Rad(PI * 0.197))
+                * (0.3
+                    * vec2(
+                        43.0 / 48.0, //0.5 * 43.0 / 48.0 - 0.3,
+                        12.0 / 48.0, //0.5 * 12.0 / 48.0 + 0.1,
+                    )),
+        moto_matrix
+            * Matrix2::from_angle(Rad(PI * 0.197))
+            * scale(0.215815 * 380.0 / 96.0, 0.215815 * 301.0 / 96.0),
     );
 }
+
+fn scale(x: f64, y: f64) -> Matrix2<f64> {
+    Matrix2::new(x, 0.0, 0.0, y)
+}
+
+/*
+fn reflection() -> Matrix2<f64> {
+    scale(-1.0, 1.0)
+}*/
 
 // (x1, y1)–(x2, y2): line to draw image along
 // bx: length of image used before (x1, y1)

@@ -1,7 +1,7 @@
 use crate::atlas::{Atlas, Sprite};
 use crate::render::{PictureVertex, PolygonVertex, Viewport};
 use crate::triangulation::triangulate;
-use cgmath::{vec2, Vector2};
+use cgmath::{vec2, Matrix2, Rad, Vector2};
 use elma::constants::OBJECT_RADIUS;
 use elma::lev::{Level, ObjectType};
 use elma::Clip;
@@ -179,6 +179,7 @@ impl Scene {
         };
 
         Moto {
+            wheels: [add("WHEEL"), add("WHEEL")],
             bike: add("BIKE"),
             body: add("BODY"),
             forearm: add("FORARM"),
@@ -188,7 +189,6 @@ impl Scene {
             suspension2: add("SUSP2"),
             thigh: add("THIGH"),
             upper_arm: add("UP_ARM"),
-            wheels: [add("WHEEL"), add("WHEEL")],
         }
     }
 
@@ -294,16 +294,19 @@ impl Scene {
         }
     }
 
-    pub fn set_image_pos(&mut self, image: usize, position: Vector2<f64>, radius: f64, angle: f64) {
-        let (sin, cos) = angle.sin_cos();
-        let v = radius * vec2(-cos + sin, -cos - sin);
-        let pos = [
-            position + vec2(v.y, -v.x),
-            position - v,
-            position + vec2(-v.y, v.x),
-            position + v,
+    pub fn set_image_pos(&mut self, image: usize, position: Vector2<f64>, matrix: Matrix2<f64>) {
+        let mut pos = [
+            vec2(-1.0, 1.0),
+            vec2(1.0, 1.0),
+            vec2(1.0, -1.0),
+            vec2(-1.0, -1.0),
         ];
 
+        for pos in &mut pos {
+            *pos = position + matrix * *pos;
+        }
+
+        /*
         println!("{{");
         for i in 0..pos.len() {
             print!("{{{}, {}}}", pos[i].x, pos[i].y);
@@ -313,7 +316,7 @@ impl Scene {
                 println!();
             }
         }
-        println!("}},");
+        println!("}},");*/
 
         for i in 0..4 {
             self.vertices[image + i].position = [pos[i].x as f32, pos[i].y as f32];
