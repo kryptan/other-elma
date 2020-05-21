@@ -141,7 +141,7 @@ impl Atlas {
     }
 
     pub fn get(&self, name: &str) -> &Sprite {
-        //  dbg!(name);
+        //dbg!(name);
         self.sprites.get(name).unwrap()
     }
 }

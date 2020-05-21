@@ -13,6 +13,7 @@ use glutin::event_loop::ControlFlow;
 use std::time::{Duration, Instant};
 
 mod atlas;
+mod bike;
 mod physics;
 mod render;
 mod scene;
@@ -62,19 +63,14 @@ impl Events for E {
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/DLP23.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/DLP20.lev");
     // dbg!(&game_state.level.objects);
     // dbg!(&game_state.level.ground);
 
     let mut atlas = Atlas::new("E:/d/games/ElastoMania/lgr/default.lgr");
     let mut scene = Scene::new(&mut game_state.level, &atlas);
 
-    let wheel_pic = atlas.get("Q1WHEEL");
-    let bike = scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped, false);
-    let wheels = [
-        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped, false),
-        scene.add_image(wheel_pic, vec2(0.0, 0.0), Clip::Unclipped, false),
-    ];
+    let moto = scene.add_moto(&atlas, false);
 
     let events_loop = glutin::event_loop::EventLoop::new();
     let window_builder = glutin::window::WindowBuilder::new()
@@ -177,20 +173,14 @@ fn main() {
 
                 let viewport = render::Viewport::from_center_and_scale(
                     game_state.moto.bike.position,
-                    15.0,
+                    10.0,
                     size,
                 );
 
                 scene.animate(time);
                 scene.update(viewport);
 
-                for i in 0..2 {
-                    object_to_vertices(
-                        &game_state.moto.wheels[i],
-                        &mut scene.vertices[wheels[i]..],
-                    );
-                }
-                object_to_vertices(&game_state.moto.bike, &mut scene.vertices[bike..]);
+                bike::render_moto(&mut scene, &moto, &game_state.moto);
 
                 unsafe {
                     renderer.draw_polygons(
@@ -222,21 +212,4 @@ fn main() {
             return;
         }
     });
-
-    //  unsafe { renderer.cleanup(&gl) };
-}
-
-fn object_to_vertices(object: &Object, vertices: &mut [PictureVertex]) {
-    let (sin, cos) = object.angular_position.sin_cos();
-    let v = 0.4 * 2.0f64.sqrt() * vec2(cos, sin);
-    let pos = [
-        object.position - v,
-        object.position + vec2(v.y, -v.x),
-        object.position + v,
-        object.position + vec2(-v.y, v.x),
-    ];
-
-    for i in 0..4 {
-        vertices[i].position = [pos[i].x as f32, pos[i].y as f32];
-    }
 }

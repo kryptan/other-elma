@@ -31,6 +31,19 @@ struct Object {
     num_frames: i32,
 }
 
+pub struct Moto {
+    pub bike: usize,
+    pub body: usize,
+    pub forearm: usize,
+    pub head: usize,
+    pub leg: usize,
+    pub suspension1: usize,
+    pub suspension2: usize,
+    pub thigh: usize,
+    pub upper_arm: usize,
+    pub wheels: [usize; 2],
+}
+
 fn vec_dir(i: i32) -> Vector2<f64> {
     match i {
         0 => vec2(0.0, 0.0),
@@ -41,15 +54,15 @@ fn vec_dir(i: i32) -> Vector2<f64> {
     }
 }
 
-const PIXELS_PER_UNIT: f64 = 95.0 / 2.0; // FIXME: the exact coefficient isn't known
+const PIXELS_PER_UNIT: f64 = 48.0;
 
 impl Scene {
     pub fn new(level: &mut Level, atlas: &Atlas) -> Scene {
+        let grass_texture = atlas.get("QGRASS");
         let sky_texture = atlas.get(&level.sky);
         let ground_texture = atlas.get(&level.ground);
         let sky_size = sky_texture.size;
         let ground_size = ground_texture.size;
-        let grass_texture = atlas.get("QGRASS");
 
         let polygons = triangulate(&level, false, |position| PolygonVertex {
             position,
@@ -159,6 +172,26 @@ impl Scene {
         scene
     }
 
+    pub fn add_moto(&mut self, atlas: &Atlas, i: bool) -> Moto {
+        let mut add = |name| {
+            let sprite = atlas.get(&format!("Q{}{}", i as u8 + 1, name));
+            self.add_image(sprite, vec2(0.0, 0.0), Clip::Unclipped, false)
+        };
+
+        Moto {
+            bike: add("BIKE"),
+            body: add("BODY"),
+            forearm: add("FORARM"),
+            head: add("HEAD"),
+            leg: add("LEG"),
+            suspension1: add("SUSP1"),
+            suspension2: add("SUSP2"),
+            thigh: add("THIGH"),
+            upper_arm: add("UP_ARM"),
+            wheels: [add("WHEEL"), add("WHEEL")],
+        }
+    }
+
     pub fn add_image(
         &mut self,
         sprite: &Sprite,
@@ -258,6 +291,32 @@ impl Scene {
             let p = viewport.position + vec2(viewport.size.x * v.x, viewport.size.y * v.y);
             ground[i as usize].position = [p.x as f32, p.y as f32];
             ground[i as usize].tex_coord = position_to_tex_coord(p, self.ground_size);
+        }
+    }
+
+    pub fn set_image_pos(&mut self, image: usize, position: Vector2<f64>, radius: f64, angle: f64) {
+        let (sin, cos) = angle.sin_cos();
+        let v = radius * vec2(-cos + sin, -cos - sin);
+        let pos = [
+            position + vec2(v.y, -v.x),
+            position - v,
+            position + vec2(-v.y, v.x),
+            position + v,
+        ];
+
+        println!("{{");
+        for i in 0..pos.len() {
+            print!("{{{}, {}}}", pos[i].x, pos[i].y);
+            if i != 3 {
+                println!(",");
+            } else {
+                println!();
+            }
+        }
+        println!("}},");
+
+        for i in 0..4 {
+            self.vertices[image + i].position = [pos[i].x as f32, pos[i].y as f32];
         }
     }
 }
