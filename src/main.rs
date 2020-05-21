@@ -1,18 +1,19 @@
 #![feature(bool_to_option)]
 use crate::atlas::Atlas;
+use crate::physics::{Control, Events, Moto, Object, Segments};
 use crate::render::PictureVertex;
 use crate::scene::Scene;
 use cgmath::vec2;
 use elma::lev::Level;
 use elma::rec::EventType;
 use elma::Clip;
-use elma_physics::{Control, Events, Moto, Object, Segments};
 use gl::types::*;
 use glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use glutin::event_loop::ControlFlow;
 use std::time::{Duration, Instant};
 
 mod atlas;
+mod physics;
 mod render;
 mod scene;
 mod triangulation;
@@ -61,7 +62,7 @@ impl Events for E {
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/A23.lev");
+    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/DLP23.lev");
     // dbg!(&game_state.level.objects);
     // dbg!(&game_state.level.ground);
 

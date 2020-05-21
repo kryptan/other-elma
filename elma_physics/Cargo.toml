@@ -1,9 +1,0 @@
-[package]
-name = "elma_physics"
-version = "0.1.0"
-authors = ["kryptan"]
-edition = "2018"
-
-[dependencies]
-cgmath = "0.17"
-elma = "0.1"

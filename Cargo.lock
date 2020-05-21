@@ -79,12 +79,6 @@ checksum = "37fa13df2292ecb479ec23aa06f4507928bef07839be9ef15281411076629431"
 
 [[package]]
 name = "byteorder"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fc10e8cc6b2580fda3f36eb6dc5316657f812a3df879a44a66fc9f0fdbc4855"
-
-[[package]]
-name = "byteorder"
 version = "1.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08c48aae112d48ed9f069b33538ea9e3e90aa263cfa3d1c24309612b1f7472de"
@@ -102,9 +96,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.53"
+version = "1.0.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "404b1fe4f65288577753b17e3b36a04596ee784493ec249bf81c7f2d2acd751c"
+checksum = "7bbb73db36c1246e9034e307d0fba23f9a2e251faa47ade70c1bd252220c8311"
 
 [[package]]
 name = "cfg-if"
@@ -309,7 +303,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7e5d2a2273fed52a7f947ee55b092c4057025d7a3e04e5ecdbd25d6c3fb1bd7"
 dependencies = [
  "adler32",
- "byteorder 1.3.4",
+ "byteorder",
 ]
 
 [[package]]
@@ -356,20 +350,10 @@ version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51a202a881c888fd7ca4f31a467656ae50247c3fb8647fee9150b783f89c2ab4"
 dependencies = [
- "byteorder 1.3.4",
+ "byteorder",
  "itertools",
  "nom",
  "rand",
-]
-
-[[package]]
-name = "elma-lgr"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cf9b1f7255908ffa857704367c89153ce5e3969147e6f0ebad42cdd40117258"
-dependencies = [
- "byteorder 0.5.3",
- "pcx 0.1.2",
 ]
 
 [[package]]
@@ -378,22 +362,12 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "elma",
- "elma-lgr",
- "elma_physics",
  "gl_generator 0.14.0",
  "glutin",
  "image",
  "lyon_tessellation",
- "pcx 0.2.3",
+ "pcx",
  "rect_packer",
-]
-
-[[package]]
-name = "elma_physics"
-version = "0.1.0"
-dependencies = [
- "cgmath",
- "elma",
 ]
 
 [[package]]
@@ -562,7 +536,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9117f4167a8f21fa2bb3f17a652a760acd7572645281c98e3b612a26242c96ee"
 dependencies = [
  "bytemuck",
- "byteorder 1.3.4",
+ "byteorder",
  "gif",
  "jpeg-decoder",
  "num-iter",
@@ -618,7 +592,7 @@ version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b47b4c4e017b01abdc5bcc126d2d1002e5a75bbe3ce73f9f4f311a916363704"
 dependencies = [
- "byteorder 1.3.4",
+ "byteorder",
  "rayon",
 ]
 
@@ -1013,20 +987,11 @@ dependencies = [
 
 [[package]]
 name = "pcx"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aea95d95f755c16677477acd124c27a4311f460ccccd0f2eaa68caf58a447101"
-dependencies = [
- "byteorder 0.5.3",
-]
-
-[[package]]
-name = "pcx"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b00b062973776578e7863f8395f86e821760d827384f1ad9371d0893c87481a"
 dependencies = [
- "byteorder 1.3.4",
+ "byteorder",
 ]
 
 [[package]]
@@ -1358,14 +1323,14 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f77b6b07e862c66a9f3e62a07588fee67cd90a9135a2b942409f195507b4fb51"
 dependencies = [
- "byteorder 1.3.4",
+ "byteorder",
 ]
 
 [[package]]
 name = "syn"
-version = "1.0.22"
+version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1425de3c33b0941002740a420b1a906a350b88d08b82b2c8a01035a3f9447bac"
+checksum = "95b5f192649e48a5302a13f2feb224df883b98933222369e4b3b0fe2a5447269"
 dependencies = [
  "proc-macro2 1.0.13",
  "quote 1.0.6",
@@ -1378,7 +1343,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "002351e428db1eb1d8656d4ca61947c3519ac3191e1c804d4600cd32093b77ad"
 dependencies = [
- "byteorder 1.3.4",
+ "byteorder",
  "lzw",
  "miniz_oxide",
 ]
