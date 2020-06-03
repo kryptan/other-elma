@@ -1,7 +1,8 @@
 use crate::atlas::{Atlas, Sprite};
 use crate::render::{PictureVertex, PolygonVertex, Viewport};
+use crate::transform::Transform;
 use crate::triangulation::triangulate;
-use cgmath::{vec2, Matrix2, Rad, Vector2};
+use cgmath::{vec2, Vector2};
 use elma::constants::OBJECT_RADIUS;
 use elma::lev::{Level, ObjectType};
 use elma::Clip;
@@ -180,15 +181,15 @@ impl Scene {
 
         Moto {
             wheels: [add("WHEEL"), add("WHEEL")],
-            bike: add("BIKE"),
-            body: add("BODY"),
-            forearm: add("FORARM"),
-            head: add("HEAD"),
-            leg: add("LEG"),
             suspension1: add("SUSP1"),
             suspension2: add("SUSP2"),
+            bike: add("BIKE"),
+            head: add("HEAD"),
             thigh: add("THIGH"),
+            body: add("BODY"),
+            leg: add("LEG"),
             upper_arm: add("UP_ARM"),
+            forearm: add("FORARM"),
         }
     }
 
@@ -294,16 +295,23 @@ impl Scene {
         }
     }
 
-    pub fn set_image_pos(&mut self, image: usize, position: Vector2<f64>, matrix: Matrix2<f64>) {
+    pub fn set_image_pos(&mut self, image: usize, transform: Transform) {
+        /*   let mut pos = [
+            vec2(-0.5, 0.5),
+            vec2(0.5, 0.5),
+            vec2(0.5, -0.5),
+            vec2(-0.5, -0.5),
+        ];*/
+
         let mut pos = [
-            vec2(-1.0, 1.0),
-            vec2(1.0, 1.0),
+            vec2(0.0, 0.0),
+            vec2(1.0, 0.0),
             vec2(1.0, -1.0),
-            vec2(-1.0, -1.0),
+            vec2(0.0, -1.0),
         ];
 
         for pos in &mut pos {
-            *pos = position + matrix * *pos;
+            *pos = transform.transform(*pos);
         }
 
         /*

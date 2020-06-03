@@ -1,12 +1,10 @@
 #![feature(bool_to_option)]
 use crate::atlas::Atlas;
-use crate::physics::{Control, Events, Moto, Object, Segments};
-use crate::render::PictureVertex;
+use crate::physics::{Control, Events, Moto, Segments};
 use crate::scene::Scene;
 use cgmath::vec2;
 use elma::lev::Level;
 use elma::rec::EventType;
-use elma::Clip;
 use gl::types::*;
 use glutin::event::{ElementState, Event, VirtualKeyCode, WindowEvent};
 use glutin::event_loop::ControlFlow;
@@ -17,6 +15,7 @@ mod bike;
 mod physics;
 mod render;
 mod scene;
+mod transform;
 mod triangulation;
 
 mod gl {
@@ -63,11 +62,11 @@ impl Events for E {
 }
 
 fn main() {
-    let mut game_state = GameState::new("E:/d/games/ElastoMania/Lev/DLP20.lev");
+    let mut game_state = GameState::new("D:/games/Elma Online/Lev/0LP05.lev");
     // dbg!(&game_state.level.objects);
     // dbg!(&game_state.level.ground);
 
-    let mut atlas = Atlas::new("E:/d/games/ElastoMania/lgr/default.lgr");
+    let mut atlas = Atlas::new("D:/games/ElastoMania/lgr/default.lgr");
     let mut scene = Scene::new(&mut game_state.level, &atlas);
 
     let moto = scene.add_moto(&atlas, false);

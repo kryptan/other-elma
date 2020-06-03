@@ -1,142 +1,220 @@
 // https://github.com/Maxdamantus/recplay/blob/master/recRender.js
 use crate::physics::WHEEL_RADIUS;
 use crate::scene::Scene;
+use crate::transform::Transform;
 use crate::{physics, scene};
-use cgmath::{vec2, Matrix2, Rad, Vector2};
+use cgmath::{vec2, InnerSpace, Vector2};
 use std::f64::consts::PI;
 
 pub fn render_moto(scene: &mut Scene, scene_moto: &scene::Moto, physics_moto: &physics::Moto) {
     for i in 0..2 {
+        let transform = Transform::unit()
+            .translate(physics_moto.wheels[i].position)
+            .rotate(physics_moto.wheels[i].angular_position)
+            .scale(2.0 * WHEEL_RADIUS)
+            .translate(vec2(-0.5, 0.5));
+
+        scene.set_image_pos(scene_moto.wheels[i], transform);
+    }
+
+    let mut moto_transform = Transform::unit()
+        .translate(physics_moto.bike.position)
+        .rotate(physics_moto.bike.angular_position);
+
+    if physics_moto.direction {
+        moto_transform = moto_transform.scale2(vec2(-1.0, 1.0));
+    }
+
+    let suspension_transform = moto_transform.scale(1.0 / 48.0);
+    let mut wheels_pos = [vec2(0.0, 0.0); 2];
+    for i in 0..2 {
+        wheels_pos[i] = moto_transform
+            .inverse()
+            .transform(physics_moto.wheels[i].position);
+    }
+    if physics_moto.direction {
+        wheels_pos.swap(0, 1);
+    }
+
+    // front suspension
+    scene.set_image_pos(
+        scene_moto.suspension1,
+        suspension_transform.skew(2.0, 0.5, 5.0, 6.0, 48.0 * wheels_pos[0], vec2(-21.5, 17.0)),
+    );
+
+    // rear suspension
+    scene.set_image_pos(
+        scene_moto.suspension2,
+        suspension_transform.skew(0.0, 0.5, 5.0, 6.0, vec2(9.0, -20.0), 48.0 * wheels_pos[1]),
+    );
+
+    let head_pos = moto_transform
+        .inverse()
+        .transform(physics_moto.head_position);
+    let head_transform = moto_transform.translate(head_pos);
+
+    // head
+    scene.set_image_pos(
+        scene_moto.head,
+        head_transform
+            .translate(vec2(-15.5 / 48.0, 42.0 / 48.0))
+            .scale2(vec2(23.0 / 48.0, 23.0 / 48.0)),
+    );
+
+    // body
+    scene.set_image_pos(
+        scene_moto.body,
+        head_transform
+            .translate(vec2(17.0 / 48.0, -9.25 / 48.0))
+            .rotate(-PI - 2.0 / 3.0)
+            .scale2(vec2(100.0 / 48.0 / 3.0, 58.0 / 48.0 / 3.0)),
+    );
+
+    let bum = vec2(19.5 / 48.0, 0.0);
+    let pedal = vec2(10.2, -65.0) / 48.0 / 3.0 - head_pos;
+    LEG.render(
+        scene,
+        head_transform,
+        bum,
+        scene_moto.thigh,
+        pedal,
+        scene_moto.leg,
+    );
+
+    let shoulder = vec2(0.0, 17.5) / 48.0;
+    let handle = vec2(-64.5, 59.6) / 48.0 / 3.0 - head_pos;
+    // FIXME: animate
+    ARM.render(
+        scene,
+        head_transform,
+        shoulder,
+        scene_moto.upper_arm,
+        handle,
+        scene_moto.forearm,
+    );
+
+    let bike_transform = moto_transform
+        .translate(vec2(-43.0 / 48.0, 12.0 / 48.0))
+        .rotate(PI * 0.197)
+        .scale2(0.215815 / 48.0 * vec2(380.0, 301.0));
+
+    scene.set_image_pos(scene_moto.bike, bike_transform);
+}
+
+struct Limb {
+    inner: bool,
+    parts: [LimbPart; 2],
+}
+
+struct LimbPart {
+    length: f64,
+    bx: f64,
+    by: f64,
+    br: f64,
+    ih: f64,
+}
+
+const LEG: Limb = Limb {
+    inner: true,
+    parts: [
+        LimbPart {
+            length: 26.25 / 48.0,
+            bx: 0.0,
+            by: 0.6,
+            br: 6.0 / 48.0,
+            ih: 39.4 / 48.0 / 3.0,
+        },
+        LimbPart {
+            length: 1.0 - 26.25 / 48.0,
+            bx: 5.0 / 48.0 / 3.0,
+            by: 0.45,
+            br: 4.0 / 48.0,
+            ih: 60.0 / 48.0 / 3.0,
+        },
+    ],
+};
+
+const ARM: Limb = Limb {
+    inner: false,
+    parts: [
+        LimbPart {
+            length: 0.3234,
+            bx: 12.2 / 48.0 / 3.0,
+            by: 0.5,
+            br: 13.0 / 48.0 / 3.0,
+            ih: -32.0 / 48.0 / 3.0,
+        },
+        LimbPart {
+            length: 0.3444,
+            bx: 3.0 / 48.0,
+            by: 0.5,
+            br: 13.2 / 48.0 / 3.0,
+            ih: 22.8 / 48.0 / 3.0,
+        },
+    ],
+};
+
+impl Limb {
+    fn render(
+        &self,
+        scene: &mut Scene,
+        transform: Transform,
+        p1: Vector2<f64>,
+        first: usize,
+        p2: Vector2<f64>,
+        second: usize,
+    ) {
+        let dist = (p2 - p1).magnitude();
+        let mut first_len = self.parts[0].length;
+        let second_len = self.parts[1].length;
+
+        let prod = (dist + first_len + second_len)
+            * (dist - first_len + second_len)
+            * (dist + first_len - second_len)
+            * (-dist + first_len + second_len);
+        let angle = (p2.y - p1.y).atan2(p2.x - p1.x);
+        let mut jointangle = 0.0;
+        if prod >= 0.0 && dist < first_len + second_len {
+            // law of sines
+            let circumr = dist * first_len * second_len / prod.sqrt();
+            jointangle = (second_len / (2.0 * circumr)).asin();
+        } else {
+            first_len = first_len / (first_len + second_len) * dist;
+        }
+
+        if self.inner {
+            jointangle *= -1.0;
+        }
+
+        let joint = p1 + first_len * vec2((angle + jointangle).cos(), (angle + jointangle).sin());
+
         scene.set_image_pos(
-            scene_moto.wheels[i],
-            physics_moto.wheels[i].position,
-            Matrix2::from_angle(Rad(physics_moto.wheels[i].angular_position)) * WHEEL_RADIUS,
+            first,
+            transform.skew(
+                self.parts[0].bx,
+                self.parts[0].by,
+                self.parts[0].br,
+                self.parts[0].ih,
+                joint,
+                p1,
+            ),
+        );
+        scene.set_image_pos(
+            second,
+            transform.skew(
+                self.parts[1].bx,
+                self.parts[1].by,
+                self.parts[1].br,
+                self.parts[1].ih,
+                p2,
+                joint,
+            ),
         );
     }
-
-    /*
-
-                    canv.translate(-43/48, -12/48);
-                    canv.rotate(-Math.PI*0.197);
-                    canv.scale(0.215815*380/48, 0.215815*301/48);
-                    lgr.bike.draw(canv);
-
-                    38.4/48*x == 0.4
-                    x = 0.5
-                    0.215815*380/48 == y*x
-                    y = 0.215815*380.0/48*0.4*48.0/38.4
-
-
-
-                canv.save(); // bike
-                    canv.translate(-43/48, -12/48);
-                    canv.rotate(-Math.PI*0.197);
-                    canv.scale(0.215815*380/48, 0.215815*301/48);
-                    lgr.bike.draw(canv);
-                canv.restore();
-    */
-    let mut moto_matrix = Matrix2::from_angle(Rad(physics_moto.bike.angular_position));
-    if physics_moto.direction {
-        moto_matrix = moto_matrix * scale(-1.0, 1.0);
-    }
-
-    scene.set_image_pos(
-        scene_moto.bike,
-        physics_moto.bike.position
-            + moto_matrix
-                * Matrix2::from_angle(Rad(PI * 0.197))
-                * (0.3
-                    * vec2(
-                        43.0 / 48.0, //0.5 * 43.0 / 48.0 - 0.3,
-                        12.0 / 48.0, //0.5 * 12.0 / 48.0 + 0.1,
-                    )),
-        moto_matrix
-            * Matrix2::from_angle(Rad(PI * 0.197))
-            * scale(0.215815 * 380.0 / 96.0, 0.215815 * 301.0 / 96.0),
-    );
-}
-
-fn scale(x: f64, y: f64) -> Matrix2<f64> {
-    Matrix2::new(x, 0.0, 0.0, y)
 }
 
 /*
-fn reflection() -> Matrix2<f64> {
-    scale(-1.0, 1.0)
-}*/
 
-// (x1, y1)–(x2, y2): line to draw image along
-// bx: length of image used before (x1, y1)
-// br: length of image used after (x2, y2)
-// by: proportional (of ih) y offset within the image the line is conceptually along
-// ih: image height
-/*fn skew_image(canv, img, bx: f64, by: f64, br: f64, ih: f64, x1: f64, y1: f64, x2: f64, y2: f64){
-    let o = x2 - x1;
-    let a = y2 - y1;
-
-        canv.translate(x1, y1);
-        canv.rotate(Math.atan2(a, o));
-        canv.translate(-bx, -by*ih);
-        canv.scale(bx + br + hypot(o, a), ih);
-        img.draw(canv);
-}*/
-
-/*
-function target(canv, x, y, s){
-    canv.beginPath();
-    canv.moveTo(x - s/2, y);
-    canv.lineTo(x + s/2, y);
-    canv.moveTo(x, y - s/2);
-    canv.lineTo(x, y + s/2);
-    canv.stroke();
-}
-
-function limb(cwInner, fstParams, sndParams){
-    return function(canv, fstImg, x1, y1, sndImg, x2, y2){
-        var dist = hypot(x2 - x1, y2 - y1);
-        var fstLen = fstParams.length, sndLen = sndParams.length;
-
-        var prod =
-            (dist + fstLen + sndLen)*
-            (dist - fstLen + sndLen)*
-            (dist + fstLen - sndLen)*
-            (-dist + fstLen + sndLen);
-        var angle = Math.atan2(y2 - y1, x2 - x1);
-        var jointangle = 0;
-        if(prod >= 0 && dist < fstLen + sndLen){
-            // law of sines
-            var circumr = dist*fstLen*sndLen/Math.sqrt(prod);
-            jointangle = Math.asin(sndLen/(2*circumr));
-        }else
-            fstLen = fstLen/(fstLen + sndLen)*dist;
-
-        if(cwInner)
-            jointangle *= -1;
-
-        var jointx = x1 + fstLen*Math.cos(angle + jointangle);
-        var jointy = y1 + fstLen*Math.sin(angle + jointangle);
-
-        skewimage(canv, fstImg, fstParams.bx, fstParams.by, fstParams.br, fstParams.ih, jointx, jointy, x1, y1);
-        skewimage(canv, sndImg, sndParams.bx, sndParams.by, sndParams.br, sndParams.ih, x2, y2, jointx, jointy);
-    };
-
-}
-
-var legLimb = limb(false, {
-    length: 26.25/48,
-    bx: 0, by: 0.6, br: 6/48, ih: 39.4/48/3
-}, {
-    length: 1 - 26.25/48,
-    bx: 5/48/3, by: 0.45, br: 4/48, ih: 60/48/3
-});
-
-var armLimb = limb(true, {
-    length: 0.3234,
-    bx: 12.2/48/3, by: 0.5, br: 13/48/3, ih: -32/48/3
-}, {
-    length: 0.3444,
-    bx: 3/48, by: 0.5, br: 13.2/48/3, ih: 22.8/48/3
-});
 
 exports.renderer = function recRender(reader){
     var turnFrames = function(){

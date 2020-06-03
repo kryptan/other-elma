@@ -259,7 +259,7 @@ impl Segments {
 pub struct Moto {
     pub wheels: [Object; 2],
     pub bike: Object,
-    head_position: Vector2<f64>,
+    pub head_position: Vector2<f64>,
     head_velocity: Vector2<f64>,
     braking: bool,
     pub direction: bool,
@@ -654,7 +654,7 @@ fn compute_bike_wheel_forces(
     }
 
     let f = kp * dp + kv * dv;
-    *wheel_force = f - scross(wheel_angular_force, bw) / bw.magnitude2();
+    *wheel_force = f - scross(wheel_angular_force, bw) / bw.magnitude2(); // FIXME: Fix singularity but preserve bump
     *bike_force -= *wheel_force;
     *bike_angular_force -= bw.perp_dot(f);
 
@@ -680,11 +680,10 @@ fn compute_head_pos(moto: &mut Moto, x: Vector2<f64>, y: Vector2<f64>) {
     bh.y = bh.y.min(normal_position.y);
     bh.x = bh.x.max(-0.5);
 
-    if bh.x > 0.0 && bh.y > 0.0 {
-        let k = normal_position.y / normal_position.x;
-        let v32 = k * k * bh.x * bh.x + bh.y * bh.y;
-        if v32 > normal_position.y * normal_position.x {
-            bh *= normal_position.y / v32.sqrt();
+    if bh.x > 0.0 {
+        let v33 = vec2(bh.x / normal_position.x, bh.y / normal_position.y).magnitude2();
+        if v33 > 1.0 {
+            bh *= 1.0 / v33.sqrt();
         }
     }
 
